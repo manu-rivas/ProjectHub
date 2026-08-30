@@ -178,6 +178,9 @@ export function ProjectWorkspace({
   }
 
   const onDisk = Boolean(project.path) && !project.missing && !project.trashed;
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const wikiReading = tab === "docs";
+  const showDetails = !wikiReading || detailsOpen;
 
   const tabs: { id: Tab; label: string; badge?: boolean }[] = [
     { id: "ideas", label: "Board", badge: (project.ideas?.cards.length || 0) > 0 },
@@ -188,25 +191,43 @@ export function ProjectWorkspace({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="border-b border-[var(--rule)] px-6 py-5">
-        <Link href="/" className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--amber)]">
-          ← Studio wall
-        </Link>
-        <p className="mt-1 text-xs text-[var(--ink-soft)]">Full project page</p>
-        <div className="mt-3 flex items-start gap-4">
-          <ProjectMark project={project} />
+      <header className={`border-b border-[var(--rule)] px-6 ${wikiReading ? "py-3" : "py-5"}`}>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--amber)]">
+            ← Studio wall
+          </Link>
+          {wikiReading ? (
+            <button
+              className="ml-auto text-xs font-bold uppercase tracking-[0.16em] text-[var(--ink-soft)]"
+              type="button"
+              onClick={() => setDetailsOpen((open) => !open)}
+            >
+              {detailsOpen ? "Hide details" : "Project details"}
+            </button>
+          ) : (
+            <p className="text-xs text-[var(--ink-soft)]">Full project page</p>
+          )}
+        </div>
+        <div className={`flex items-start gap-4 ${wikiReading ? "mt-2" : "mt-3"}`}>
+          <ProjectMark project={project} size={wikiReading && !detailsOpen ? "sm" : "md"} />
           <div className="min-w-0 flex-1">
             <input
-              className="w-full bg-transparent font-[family-name:var(--font-serif)] text-4xl outline-none"
+              className={`w-full bg-transparent font-[family-name:var(--font-serif)] outline-none ${
+                wikiReading && !detailsOpen ? "text-2xl" : "text-4xl"
+              }`}
               value={name}
               onChange={(event) => setName(event.target.value)}
               onBlur={() => name.trim() && name !== project.name && save({ name: name.trim() })}
             />
-            <p className="mt-1 break-all font-mono text-[12px] text-[var(--ink-soft)]">
-              {project.path || project.remoteUrl || "No local folder"}
-            </p>
+            {showDetails ? (
+              <p className="mt-1 break-all font-mono text-[12px] text-[var(--ink-soft)]">
+                {project.path || project.remoteUrl || "No local folder"}
+              </p>
+            ) : null}
           </div>
         </div>
+        {showDetails ? (
+          <>
         <div className="mt-4">
           <IconPicker project={project} onChange={onChange} onToast={onToast} />
         </div>
@@ -301,13 +322,15 @@ export function ProjectWorkspace({
             Not on this machine. Clone it with GitHub CLI (`gh repo clone`) when you want a local copy.
           </p>
         ) : null}
+          </>
+        ) : null}
       </header>
 
-      <nav className="flex gap-1 overflow-x-auto border-b border-[var(--rule)] px-4 pt-2">
+      <nav className={`flex gap-1 overflow-x-auto border-b border-[var(--rule)] px-4 ${wikiReading ? "pt-1" : "pt-2"}`}>
         {tabs.map((item) => (
           <button
             key={item.id}
-            className={`rounded-t-md px-4 py-2 text-sm ${
+            className={`rounded-t-md px-4 text-sm ${wikiReading ? "py-1.5" : "py-2"} ${
               tab === item.id ? "bg-[var(--card)] font-semibold" : "text-[var(--ink-soft)]"
             }`}
             onClick={() => setTab(item.id)}
@@ -319,7 +342,7 @@ export function ProjectWorkspace({
         ))}
       </nav>
 
-      <div className={`min-h-0 flex-1 ${tab === "docs" ? "overflow-hidden p-0" : "overflow-y-auto px-6 py-5"}`}>
+      <div className={`min-h-0 flex-1 ${tab === "docs" ? "flex overflow-hidden p-0" : "overflow-y-auto px-6 py-5"}`}>
         {tab === "ideas" ? (
           <IdeaBoard project={project} onChange={onChange} onToast={onToast} />
         ) : tab === "notes" ? (
@@ -396,46 +419,48 @@ export function ProjectWorkspace({
         ) : null}
       </div>
 
-      <footer className="grid grid-cols-3 gap-2 border-t border-[var(--rule)] bg-[var(--paper-deep)] px-6 py-3 sm:grid-cols-6">
-        <button className="rounded-md bg-[var(--ink)] py-2 text-[var(--paper)] disabled:opacity-40" onClick={() => open("cursor")} disabled={!onDisk}>
+      <footer className={`grid grid-cols-3 gap-2 border-t border-[var(--rule)] bg-[var(--paper-deep)] px-6 sm:grid-cols-6 ${wikiReading ? "py-2" : "py-3"}`}>
+        <button className={`rounded-md bg-[var(--ink)] text-[var(--paper)] disabled:opacity-40 ${wikiReading ? "py-1.5 text-sm" : "py-2"}`} onClick={() => open("cursor")} disabled={!onDisk}>
           {opening === "cursor" ? "…" : "Cursor"}
         </button>
-        <button className="rounded-md border border-[var(--ink)] py-2 disabled:opacity-40" onClick={() => open("vscode")} disabled={!onDisk}>
+        <button className={`rounded-md border border-[var(--ink)] disabled:opacity-40 ${wikiReading ? "py-1.5 text-sm" : "py-2"}`} onClick={() => open("vscode")} disabled={!onDisk}>
           {opening === "vscode" ? "…" : "VS Code"}
         </button>
-        <button className="rounded-md bg-[var(--amber)] py-2 text-white disabled:opacity-40" onClick={() => open("codex")} disabled={!onDisk}>
+        <button className={`rounded-md bg-[var(--amber)] text-white disabled:opacity-40 ${wikiReading ? "py-1.5 text-sm" : "py-2"}`} onClick={() => open("codex")} disabled={!onDisk}>
           {opening === "codex" ? "…" : "Codex"}
         </button>
-        <button className="rounded-md border border-[var(--ink)] py-2 disabled:opacity-40" onClick={() => open("finder")} disabled={!onDisk}>
+        <button className={`rounded-md border border-[var(--ink)] disabled:opacity-40 ${wikiReading ? "py-1.5 text-sm" : "py-2"}`} onClick={() => open("finder")} disabled={!onDisk}>
           {opening === "finder" ? "…" : "Folder"}
         </button>
-        <button className="rounded-md border border-[var(--ink)] py-2 disabled:opacity-40" onClick={() => open("terminal")} disabled={!onDisk}>
+        <button className={`rounded-md border border-[var(--ink)] disabled:opacity-40 ${wikiReading ? "py-1.5 text-sm" : "py-2"}`} onClick={() => open("terminal")} disabled={!onDisk}>
           {opening === "terminal" ? "…" : "Terminal"}
         </button>
-        <button className="rounded-md border border-[var(--moss)] py-2 disabled:opacity-40" onClick={() => setTab("actions")} disabled={!onDisk}>
+        <button className={`rounded-md border border-[var(--moss)] disabled:opacity-40 ${wikiReading ? "py-1.5 text-sm" : "py-2"}`} onClick={() => setTab("actions")} disabled={!onDisk}>
           Start
         </button>
-        {project.remoteUrl ? (
+        {!wikiReading && project.remoteUrl ? (
           <button className="col-span-3 rounded-md border border-[var(--moss)] py-2 text-sm sm:col-span-6" type="button" onClick={() => setCloneOpen(true)}>
             {onDisk ? "Clone again…" : "Bring to this machine…"}
           </button>
         ) : null}
-        {onDisk ? (
+        {!wikiReading && onDisk ? (
           <button className="col-span-3 rounded-md border border-[var(--ink)] py-2 text-sm sm:col-span-6" type="button" onClick={() => setLocalDeleteOpen(true)}>
             Delete local folder…
           </button>
         ) : null}
-        {project.trashed ? (
-          <p className="col-span-3 text-center text-xs text-[var(--clay)] sm:col-span-6">In trash · {project.path}</p>
-        ) : onDisk ? (
-          <button className="col-span-3 text-sm text-[var(--clay)] sm:col-span-6" type="button" onClick={() => setTrashOpen(true)}>
-            Move to trash…
-          </button>
-        ) : (
-          <p className="col-span-3 text-center text-xs text-[var(--ink-soft)] sm:col-span-6">
-            No local folder{project.remoteUrl ? " · it lives on Git" : ""}. Trash does not apply.
-          </p>
-        )}
+        {!wikiReading ? (
+          project.trashed ? (
+            <p className="col-span-3 text-center text-xs text-[var(--clay)] sm:col-span-6">In trash · {project.path}</p>
+          ) : onDisk ? (
+            <button className="col-span-3 text-sm text-[var(--clay)] sm:col-span-6" type="button" onClick={() => setTrashOpen(true)}>
+              Move to trash…
+            </button>
+          ) : (
+            <p className="col-span-3 text-center text-xs text-[var(--ink-soft)] sm:col-span-6">
+              No local folder{project.remoteUrl ? " · it lives on Git" : ""}. Trash does not apply.
+            </p>
+          )
+        ) : null}
       </footer>
       {trashOpen ? (
         <TrashConfirm

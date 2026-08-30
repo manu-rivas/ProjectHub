@@ -130,12 +130,12 @@ export function ProjectWiki({
   }
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 flex-1">
       <nav className="flex w-[15.5rem] shrink-0 flex-col border-r border-[var(--rule)] bg-[color-mix(in_srgb,var(--paper)_70%,var(--card))]">
-        <div className="border-b border-[var(--rule)] px-3 py-3">
+        <div className="border-b border-[var(--rule)] px-3 py-2">
           <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Wiki</p>
           <input
-            className="mt-2 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-2 py-1 text-sm"
+            className="mt-1.5 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-2 py-1 text-sm"
             placeholder="Find a page…"
             aria-label="Find a wiki page"
             value={query}
@@ -188,12 +188,10 @@ export function ProjectWiki({
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex flex-wrap items-center gap-2 border-b border-[var(--rule)] px-5 py-3">
+        <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--rule)] px-5 py-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--ink-soft)]">
-              {project.name} / wiki
-            </p>
-            <h2 className="truncate font-[family-name:var(--font-serif)] text-2xl">{wikiTitle(page.name, page.excerpt)}</h2>
+            <h2 className="truncate font-[family-name:var(--font-serif)] text-xl">{wikiTitle(page.name, page.excerpt)}</h2>
+            <p className="truncate font-mono text-[11px] text-[var(--ink-soft)]">{page.name}</p>
           </div>
           <Link className="text-sm text-[var(--amber)]" href="/templates">
             Templates
@@ -220,9 +218,13 @@ export function ProjectWiki({
         </header>
 
         <div className="flex min-h-0 flex-1">
-          <article className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
+          <article
+            className={`flex min-h-0 min-w-0 flex-1 flex-col px-6 py-6 ${
+              page.exists && editing ? "overflow-hidden" : "overflow-y-auto"
+            }`}
+          >
             {page.exists && !editing ? (
-              <div className="mx-auto max-w-3xl">
+              <div className="mx-auto min-h-full max-w-3xl">
                 <MarkdownView
                   markdown={expandWikiLinks(page.excerpt || "")}
                   projectId={project.id}
@@ -236,12 +238,12 @@ export function ProjectWiki({
                 />
               </div>
             ) : page.exists && editing ? (
-              <div className="mx-auto max-w-3xl">
+              <div className="mx-auto flex h-full min-h-0 max-w-3xl flex-col">
                 <p className="mb-2 text-xs text-[var(--ink-soft)]">
                   Wiki links: <code className="font-mono">[[PRODUCT]]</code> or <code className="font-mono">[text](AGENTS.md)</code>
                 </p>
                 <textarea
-                  className="notes min-h-[28rem] w-full resize-y rounded-md border border-[var(--rule)] bg-[var(--card)] p-3 font-mono text-sm"
+                  className="notes min-h-0 w-full flex-1 resize-none rounded-md border border-[var(--rule)] bg-[var(--card)] p-3 font-mono text-sm"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                 />
