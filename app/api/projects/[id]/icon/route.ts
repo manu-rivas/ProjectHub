@@ -43,7 +43,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const body = (await request.json()) as { emoji?: string; icon?: string };
       const emoji = normalizeIcon(body.emoji ?? body.icon);
       if (!emoji) return NextResponse.json({ ok: false, error: "Pick a short emoji or symbol" }, { status: 400 });
-      store.projects[index] = touchProject(store.projects[index], { icon: emoji });
+      removeIconFiles(id);
+      store.projects[index] = touchProject(store.projects[index], { icon: emoji, iconExt: null });
       writeStore(store);
       return NextResponse.json({ ok: true, project: store.projects[index] });
     }
@@ -58,7 +59,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
     const bytes = Buffer.from(await file.arrayBuffer());
     const ext = writeIconFile(id, bytes, file.type);
-    store.projects[index] = touchProject(store.projects[index], { iconExt: ext });
+    store.projects[index] = touchProject(store.projects[index], { icon: null, iconExt: ext });
     writeStore(store);
     return NextResponse.json({ ok: true, project: store.projects[index] });
   } catch (error) {

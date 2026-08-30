@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { extname, join } from "node:path";
+import { join } from "node:path";
 
 export const ICON_DIR = join(homedir(), ".projecthub", "icons");
 
@@ -25,8 +25,9 @@ const EXT_FROM_TYPE: Record<string, string> = {
 export function normalizeIcon(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
-  if (!trimmed || trimmed.length > 12) return null;
+  if (!trimmed) return null;
   if (/[\u0000-\u001f\\/]/.test(trimmed)) return null;
+  if ([...trimmed].length > 8 || trimmed.length > 32) return null;
   return trimmed;
 }
 
@@ -50,8 +51,28 @@ export function removeIconFiles(projectId: string): void {
   }
 }
 
+export function sniffImageType(bytes: Buffer, declared = ""): string {
+  const listed = declared.toLowerCase();
+  if (EXT_FROM_TYPE[listed]) return listed;
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (bytes.length >= 6 && bytes.subarray(0, 6).toString("ascii") === "GIF87a") return "image/gif";
+  if (bytes.length >= 6 && bytes.subarray(0, 6).toString("ascii") === "GIF89a") return "image/gif";
+  if (bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP") {
+    return "image/webp";
+  }
+  const head = bytes.subarray(0, 256).toString("utf8").trim().toLowerCase();
+  if (head.startsWith("<svg") || head.includes("<svg")) return "image/svg+xml";
+  return "";
+}
+
 export function writeIconFile(projectId: string, bytes: Buffer, contentType: string): string {
-  const ext = EXT_FROM_TYPE[contentType] || extnameFromName(contentType);
+  const type = sniffImageType(bytes, contentType);
+  const ext = EXT_FROM_TYPE[type];
   if (!ext || !ICON_TYPES[ext]) {
     throw new Error("Use PNG, JPEG, WebP, GIF, or SVG");
   }
@@ -60,9 +81,4 @@ export function writeIconFile(projectId: string, bytes: Buffer, contentType: str
   const target = iconPath(projectId, ext);
   writeFileSync(target, bytes);
   return ext.slice(1);
-}
-
-function extnameFromName(value: string): string {
-  const ext = extname(value).toLowerCase();
-  return ICON_TYPES[ext] ? ext : "";
 }

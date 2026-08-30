@@ -230,6 +230,7 @@ export function ProjectWorkspace({
         body: JSON.stringify({ emoji: emojiDraft }),
       });
       onChange(result.project);
+      setEmojiDraft(result.project.icon || "");
       onToast("Icon saved");
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Could not save the icon");
@@ -245,6 +246,7 @@ export function ProjectWorkspace({
         body,
       });
       onChange(result.project);
+      setEmojiDraft("");
       onToast("Picture saved");
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Could not save the picture");
