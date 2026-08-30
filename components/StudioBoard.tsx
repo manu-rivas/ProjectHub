@@ -20,9 +20,9 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CreateProjectDialog } from "./CreateProjectDialog";
+import { ProjectQuickPane } from "./ProjectQuickPane";
 import { SetupWizard } from "./SetupWizard";
 import { TrashConfirm } from "./TrashConfirm";
 import { cardTintClass, cardTintStyle } from "@/lib/color";
@@ -216,7 +216,6 @@ function ColumnLane({
 }
 
 export function StudioBoard() {
-  const router = useRouter();
   const [columns, setColumns] = useState<Column[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [query, setQuery] = useState("");
@@ -224,6 +223,7 @@ export function StudioBoard() {
   const [showTrash, setShowTrash] = useState(false);
   const [trashPath, setTrashPath] = useState("");
   const [cloneRoot, setCloneRoot] = useState("");
+  const [selected, setSelected] = useState<Project | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -258,6 +258,10 @@ export function StudioBoard() {
       if (data.settings.cloneRoot) setCloneRoot(data.settings.cloneRoot);
       if (!data.settings.setupComplete) setSetupOpen(true);
     }
+    setSelected((current) => {
+      if (!current) return current;
+      return data.projects.find((project) => project.id === current.id) || current;
+    });
   }
 
   useEffect(() => {
@@ -393,8 +397,8 @@ export function StudioBoard() {
       return [...current, project];
     });
     setManualOpen(false);
+    setSelected(project);
     flash(message);
-    router.push(`/projects/${encodeURIComponent(project.id)}`);
   }
 
   async function importGithub() {
@@ -433,11 +437,12 @@ export function StudioBoard() {
 
   function replaceProject(next: Project) {
     setProjects((current) => current.map((project) => (project.id === next.id ? next : project)));
+    setSelected((current) => (current?.id === next.id ? next : current));
   }
 
   function openProject(project: Project) {
     if (dragging.current) return;
-    router.push(`/projects/${encodeURIComponent(project.id)}`);
+    setSelected(project);
   }
 
   function onDragStart(event: DragStartEvent) {
@@ -662,7 +667,7 @@ export function StudioBoard() {
               ) : (
                 visible.map((project) => (
                   <button key={project.id} className="text-left" type="button" onClick={() => openProject(project)}>
-                    <CardFace project={project} />
+                    <CardFace project={project} active={selected?.id === project.id} />
                   </button>
                 ))
               )}
@@ -683,7 +688,7 @@ export function StudioBoard() {
                 <ColumnLane
                   key={`${column.id}:${column.title}`}
                   column={column}
-                  selectedId={null}
+                  selectedId={selected?.id ?? null}
                   checkedIds={checkedIds}
                   selectMode={selectMode}
                   projects={visible
@@ -702,6 +707,15 @@ export function StudioBoard() {
           </DndContext>
           )}
         </main>
+        <ProjectQuickPane
+          project={selected}
+          columns={columns}
+          cloneRoot={cloneRoot}
+          onChange={replaceProject}
+          onMove={(projectId, columnId) => void moveProject(projectId, columnId)}
+          onToast={flash}
+          onClose={() => setSelected(null)}
+        />
       </div>
 
       {bulkTrashOpen ? (

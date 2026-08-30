@@ -284,6 +284,7 @@ export function ProjectWorkspace({
         <Link href="/" className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--amber)]">
           ← Studio wall
         </Link>
+        <p className="mt-1 text-xs text-[var(--ink-soft)]">Full project page</p>
         <div className="mt-3 flex items-start gap-4">
           <label className="cursor-pointer" title="Add a picture">
             <ProjectMark project={project} />
