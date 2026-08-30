@@ -6,13 +6,13 @@ import { isGitOnly } from "@/lib/project";
 import type { Column, DocPreview, Project, ProjectAction, PublishedState } from "@/lib/types";
 import { CARD_COLORS } from "@/lib/types";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { CloneDialog } from "./CloneDialog";
 import { IdeaBoard } from "./IdeaBoard";
 import { LocalDeleteConfirm } from "./LocalDeleteConfirm";
 import { IconPicker } from "./IconPicker";
-import { MarkdownView } from "./MarkdownView";
 import { ProjectMark } from "./ProjectMark";
+import { ProjectWiki } from "./ProjectWiki";
 import { TrashConfirm } from "./TrashConfirm";
 
 type Props = {
@@ -27,8 +27,6 @@ type Props = {
 };
 
 type Tab = "ideas" | "notes" | "docs" | "actions";
-
-type TemplateInfo = { id: string; name: string; description: string };
 
 function publishedLabel(project: Project): string {
   if (project.published === "yes") return "Published";
@@ -50,15 +48,10 @@ export function ProjectWorkspace({
   const [name, setName] = useState(project.name);
   const [docs, setDocs] = useState<DocPreview[]>([]);
   const [actions, setActions] = useState<ProjectAction[]>([]);
-  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [tab, setTab] = useState<Tab>("ideas");
-  const [docName, setDocName] = useState("README.md");
   const [hexDraft, setHexDraft] = useState(isHexColor(project.color) ? toHex6(project.color) : "");
   const [saving, setSaving] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [templateId, setTemplateId] = useState("web-app");
   const [customLabel, setCustomLabel] = useState("");
   const [customCommand, setCustomCommand] = useState("");
   const [trashOpen, setTrashOpen] = useState(false);
@@ -82,16 +75,6 @@ export function ProjectWorkspace({
     };
   }, [project.id, project.path, project.missing]);
 
-  useEffect(() => {
-    fetch("/api/templates")
-      .then((response) => response.json())
-      .then((data: { templates?: TemplateInfo[] }) => {
-        if (data.templates?.length) setTemplates(data.templates);
-      })
-      .catch(() => undefined);
-  }, []);
-
-  const activeDoc = useMemo(() => docs.find((doc) => doc.name === docName), [docs, docName]);
   const current = project;
 
   async function save(patch: Partial<Project>) {
@@ -161,35 +144,6 @@ export function ProjectWorkspace({
     }
   }
 
-  async function applyDocs(body: Record<string, unknown>) {
-    const result = await api<{ project: Project; docs: DocPreview[]; written: string[] }>(
-      `/api/projects/${current.id}/docs`,
-      { method: "POST", body: JSON.stringify(body) },
-    );
-    onChange(result.project);
-    setDocs(result.docs);
-    return result;
-  }
-
-  async function saveDoc() {
-    try {
-      await applyDocs({ name: docName, content: draft });
-      setEditing(false);
-      onToast(`Saved ${docName}`);
-    } catch (error) {
-      onToast(error instanceof Error ? error.message : "Could not save the file");
-    }
-  }
-
-  async function createFromTemplate() {
-    try {
-      const result = await applyDocs({ templateId, overwrite: false });
-      onToast(result.written.length ? `Wrote ${result.written.join(", ")}` : "Those files already exist");
-    } catch (error) {
-      onToast(error instanceof Error ? error.message : "Could not create docs");
-    }
-  }
-
   async function runAction(action: ProjectAction) {
     setOpening(action.id);
     try {
@@ -224,13 +178,6 @@ export function ProjectWorkspace({
   }
 
   const onDisk = Boolean(project.path) && !project.missing && !project.trashed;
-  const docList = docs.length
-    ? docs
-    : [
-        { name: "README.md", exists: false, excerpt: "" },
-        { name: "PRODUCT.md", exists: false, excerpt: "" },
-        { name: "AGENTS.md", exists: false, excerpt: "" },
-      ];
 
   const tabs: { id: Tab; label: string; badge?: boolean }[] = [
     { id: "ideas", label: "Board", badge: (project.ideas?.cards.length || 0) > 0 },
@@ -363,15 +310,7 @@ export function ProjectWorkspace({
             className={`rounded-t-md px-4 py-2 text-sm ${
               tab === item.id ? "bg-[var(--card)] font-semibold" : "text-[var(--ink-soft)]"
             }`}
-            onClick={() => {
-              setTab(item.id);
-              setEditing(false);
-              if (item.id === "docs") {
-                const preferred = docs.find((entry) => entry.name === docName) || docs.find((entry) => entry.exists) || docList[0];
-                setDocName(preferred.name);
-                setDraft(preferred.excerpt || "");
-              }
-            }}
+            onClick={() => setTab(item.id)}
             type="button"
           >
             {item.label}
@@ -380,7 +319,7 @@ export function ProjectWorkspace({
         ))}
       </nav>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+      <div className={`min-h-0 flex-1 ${tab === "docs" ? "overflow-hidden p-0" : "overflow-y-auto px-6 py-5"}`}>
         {tab === "ideas" ? (
           <IdeaBoard project={project} onChange={onChange} onToast={onToast} />
         ) : tab === "notes" ? (
@@ -445,124 +384,15 @@ export function ProjectWorkspace({
               </button>
             </form>
           </div>
-        ) : tab === "docs" && activeDoc?.exists ? (
-          <div className="mx-auto max-w-3xl">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              {docList.map((doc) => (
-                <button
-                  key={doc.name}
-                  type="button"
-                  className={`rounded-full border px-3 py-1 text-sm ${
-                    docName === doc.name
-                      ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
-                      : "border-[var(--rule)]"
-                  }`}
-                  onClick={() => {
-                    setDocName(doc.name);
-                    setEditing(false);
-                    setDraft(doc.excerpt || "");
-                  }}
-                >
-                  {doc.name.replace(/\.md$/i, "")}
-                  {doc.exists ? <span className="ml-1 text-[var(--moss)]">●</span> : null}
-                </button>
-              ))}
-              <div className="ml-auto flex gap-3">
-                <Link className="text-sm text-[var(--amber)]" href="/templates">
-                  My templates
-                </Link>
-                <button
-                  className="text-sm text-[var(--amber)]"
-                  type="button"
-                  onClick={() => {
-                    setDraft(activeDoc.excerpt || "");
-                    setEditing((currentEdit) => !currentEdit);
-                  }}
-                >
-                  {editing ? "Preview" : "Edit"}
-                </button>
-                {editing ? (
-                  <button className="text-sm text-[var(--moss)]" type="button" onClick={() => void saveDoc()}>
-                    Save file
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            {editing ? (
-              <textarea
-                className="notes min-h-80 w-full resize-y rounded-md border border-[var(--rule)] bg-[var(--card)] p-3 font-mono text-sm"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-              />
-            ) : (
-              <MarkdownView markdown={activeDoc.excerpt || ""} projectId={project.id} />
-            )}
-          </div>
         ) : tab === "docs" ? (
-          <div className="mx-auto max-w-3xl space-y-3 text-sm">
-            <div className="mb-1 flex flex-wrap gap-2">
-              {docList.map((doc) => (
-                <button
-                  key={doc.name}
-                  type="button"
-                  className={`rounded-full border px-3 py-1 text-sm ${
-                    docName === doc.name
-                      ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
-                      : "border-[var(--rule)]"
-                  }`}
-                  onClick={() => {
-                    setDocName(doc.name);
-                    setDraft(doc.excerpt || "");
-                  }}
-                >
-                  {doc.name.replace(/\.md$/i, "")}
-                </button>
-              ))}
-            </div>
-            <p className="text-[var(--ink-soft)]">
-              {docName} is not in the project root yet. Create it from a template, or write it here.{" "}
-              <Link className="text-[var(--amber)]" href="/templates">
-                Edit my templates
-              </Link>
-            </p>
-            {onDisk ? (
-              <>
-                <label className="block">
-                  Template
-                  <select
-                    className="mt-1 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2"
-                    value={templateId}
-                    onChange={(event) => setTemplateId(event.target.value)}
-                  >
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button className="rounded-md bg-[var(--ink)] px-3 py-2 text-[var(--paper)]" type="button" onClick={() => void createFromTemplate()}>
-                  Create docs from template
-                </button>
-                <textarea
-                  className="notes min-h-48 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] p-3 font-mono text-sm"
-                  placeholder={`# ${project.name}`}
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                />
-                <button
-                  className="rounded-md border border-[var(--ink)] px-3 py-2"
-                  type="button"
-                  disabled={!draft.trim()}
-                  onClick={() => void saveDoc()}
-                >
-                  Create {docName}
-                </button>
-              </>
-            ) : (
-              <p className="text-[var(--ink-soft)]">Clone with GitHub CLI or create a local folder first.</p>
-            )}
-          </div>
+          <ProjectWiki
+            project={project}
+            docs={docs}
+            onDisk={onDisk}
+            onChange={onChange}
+            onDocs={setDocs}
+            onToast={onToast}
+          />
         ) : null}
       </div>
 

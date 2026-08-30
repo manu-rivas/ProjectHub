@@ -64,7 +64,9 @@ Existing boards keep working. Initializing SQLite copies the current store; it d
 
 ## Project page
 
-Click a card on the studio wall to open the **quick pane** (Cursor, VS Code, start, color, clone). **Open project page** goes to `/projects/[id]` for the idea board, notes, Docs, icon, and the rest.
+Click a card on the studio wall to open the **quick pane** (Cursor, VS Code, start, color, clone). **Open project page** goes to `/projects/[id]` for the idea board, notes, wiki docs, icon, and the rest.
+
+The **Docs** tab is a wiki: sidebar of markdown pages in the project root, an article view, `[[PRODUCT]]` / `AGENTS.md` links between pages, and an on-this-page outline.
 
 Each project also has its own Trello-style idea board (Backlog / Doing / Done by default). Add columns, drag cards, set color and labels. This is separate from the studio wall.
 

@@ -31,6 +31,11 @@ pnpm dev
 - [ ] First useful slice works
 - [ ] README matches reality
 - [ ] Ready to share
+
+## See also
+
+- [[PRODUCT]] — product brief
+- [[AGENTS]] — working agreement
 `;
 
 const PRODUCT_WEB = `# Product: {{name}}
@@ -93,6 +98,11 @@ import { something } from "{{name}}";
 ## Status
 
 Early. APIs may move.
+
+## See also
+
+- [[PRODUCT]] — product brief
+- [[AGENTS]] — working agreement
 `;
 
 const PRODUCT_LIB = `# Product: {{name}}
@@ -141,6 +151,11 @@ Document the one command that boots this.
 ## Keep / kill
 
 After a week: keep, park, or delete.
+
+## See also
+
+- [[PRODUCT]] — experiment notes
+- [[AGENTS]] — working agreement
 `;
 
 const PRODUCT_EXPERIMENT = `# Experiment notes: {{name}}
@@ -186,6 +201,11 @@ pnpm dev
 ## Safety
 
 What this agent must never do.
+
+## See also
+
+- [[PRODUCT]] — product brief
+- [[AGENTS]] — working agreement
 `;
 
 const PRODUCT_AGENT = `# Product: {{name}}
@@ -225,6 +245,11 @@ What is this project, in two sentences.
 ## Next
 
 - [ ] Write the real README
+
+## See also
+
+- [[PRODUCT]]
+- [[AGENTS]]
 `;
 
 const PRODUCT_BLANK = `# Product: {{name}}

@@ -120,9 +120,9 @@ export default function TemplatesPage() {
       <p className="mt-6 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Docs</p>
       <h1 className="mt-1 font-[family-name:var(--font-serif)] text-4xl">My doc templates</h1>
       <p className="mt-3 max-w-2xl text-[var(--ink-soft)]">
-        These fill README.md, PRODUCT.md, and AGENTS.md when you create a project or seed docs. Built-in templates stay
-        as they are. Copy one, or write your own. Use <code className="font-mono text-sm">{"{{name}}"}</code> for the
-        project name.
+        These fill README.md, PRODUCT.md, and AGENTS.md when you create a project or seed the wiki. Built-in templates
+        stay as they are. Copy one, or write your own. Use <code className="font-mono text-sm">{"{{name}}"}</code> for
+        the project name. Link pages with <code className="font-mono text-sm">{"[[PRODUCT]]"}</code>.
       </p>
       {message ? <p className="mt-4 rounded-md bg-[var(--ink)] px-4 py-2 text-sm text-[var(--paper)]">{message}</p> : null}
       <div className="mt-8 grid gap-6 md:grid-cols-[16rem_1fr]">
