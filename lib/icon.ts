@@ -12,6 +12,7 @@ export const ICON_TYPES: Record<string, string> = {
   ".gif": "image/gif",
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
 };
 
 const EXT_FROM_TYPE: Record<string, string> = {
@@ -21,6 +22,9 @@ const EXT_FROM_TYPE: Record<string, string> = {
   "image/gif": ".gif",
   "image/webp": ".webp",
   "image/svg+xml": ".svg",
+  "image/x-icon": ".ico",
+  "image/vnd.microsoft.icon": ".ico",
+  "image/ico": ".ico",
 };
 
 export function normalizeIcon(value: unknown): string | null {
@@ -66,6 +70,9 @@ export function sniffImageType(bytes: Buffer, declared = ""): string {
   if (bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP") {
     return "image/webp";
   }
+  if (bytes.length >= 4 && bytes[0] === 0x00 && bytes[1] === 0x00 && bytes[2] === 0x01 && bytes[3] === 0x00) {
+    return "image/x-icon";
+  }
   const head = bytes.subarray(0, 256).toString("utf8").trim().toLowerCase();
   if (head.startsWith("<svg") || head.includes("<svg")) return "image/svg+xml";
   return "";
@@ -75,7 +82,7 @@ export function writeIconFile(projectId: string, bytes: Buffer, contentType: str
   const type = sniffImageType(bytes, contentType);
   const ext = EXT_FROM_TYPE[type];
   if (!ext || !ICON_TYPES[ext]) {
-    throw new Error("Use PNG, JPEG, WebP, GIF, or SVG");
+    throw new Error("Use PNG, JPEG, WebP, GIF, SVG, or ICO");
   }
   mkdirSync(ICON_DIR, { recursive: true });
   removeIconFiles(projectId);
