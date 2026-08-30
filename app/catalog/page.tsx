@@ -130,7 +130,15 @@ export default function CatalogPage() {
         {visible.map((entry) => (
           <li key={entry.id} className="paper-strip flex flex-wrap items-start justify-between gap-3 rounded-lg p-4">
             <div className="min-w-0 flex-1">
-              <h2 className="font-[family-name:var(--font-serif)] text-xl">{entry.name}</h2>
+              <h2 className="font-[family-name:var(--font-serif)] text-xl">
+                {entry.boardId ? (
+                  <Link className="hover:underline" href={`/projects/${encodeURIComponent(entry.boardId)}`}>
+                    {entry.name}
+                  </Link>
+                ) : (
+                  entry.name
+                )}
+              </h2>
               {entry.path ? <p className="mt-1 break-all font-mono text-[11px] text-[var(--ink-soft)]">{entry.path}</p> : null}
               {entry.remoteUrl ? (
                 <p className="mt-1 break-all font-mono text-[11px] text-[var(--moss)]">{entry.remoteUrl}</p>

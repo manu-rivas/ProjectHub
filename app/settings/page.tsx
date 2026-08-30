@@ -223,6 +223,9 @@ export default function SettingsPage() {
 
       <section className="paper-strip mt-6 space-y-2 rounded-lg p-5">
         <h2 className="font-[family-name:var(--font-serif)] text-2xl">This machine</h2>
+        <p className="text-sm text-[var(--ink-soft)]">
+          GitHub CLI is required to clone and import projects. Portless and Cursor stay optional.
+        </p>
         <ul className="space-y-1 text-sm">
           {deps.map((item) => (
             <li key={item.id}>

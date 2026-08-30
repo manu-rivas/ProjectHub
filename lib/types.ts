@@ -15,7 +15,7 @@ export type StorageBackend = "json" | "sqlite" | "github" | "supabase";
 export const STORAGE_BACKENDS: { id: StorageBackend; name: string; description: string }[] = [
   { id: "json", name: "Local JSON", description: "Just ~/.projecthub/store.json. No extra tools." },
   { id: "sqlite", name: "SQLite", description: "Local database file. Fast, private, no account." },
-  { id: "github", name: "GitHub", description: "Private projecthub-data repo via gh. Needs GitHub CLI." },
+  { id: "github", name: "GitHub", description: "Private projecthub-data repo via gh. Same CLI used to clone projects." },
   { id: "supabase", name: "Supabase", description: "Hosted Postgres. Paste a project URL and service role key." },
 ];
 

@@ -108,8 +108,8 @@ export function SetupWizard({ settings, onDone, onSkip }: Props) {
         <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-[var(--ink-soft)]">Studio launch</p>
         <h1 className="mt-2 font-[family-name:var(--font-serif)] text-5xl leading-none">ProjectHub</h1>
         <p className="mt-3 max-w-xl text-[var(--ink-soft)]">
-          A local board for the projects you start, park, and forget. We check this machine first, then you pick how
-          the board is stored.
+          A local board for the projects you start, park, and forget. GitHub CLI is required so you can clone and
+          import repos — not only if you pick GitHub as the backend.
         </p>
 
         <ol className="mt-6 flex gap-2 text-xs font-bold uppercase tracking-wider">
@@ -126,7 +126,9 @@ export function SetupWizard({ settings, onDone, onSkip }: Props) {
         {step === 1 ? (
           <section className="paper-strip mt-6 rounded-xl p-6">
             <h2 className="font-[family-name:var(--font-serif)] text-2xl">This machine</h2>
-            <p className="mt-1 text-sm text-[var(--ink-soft)]">Required tools must be green. Optional ones stay off if they are missing.</p>
+            <p className="mt-1 text-sm text-[var(--ink-soft)]">
+              Node, Git, pnpm, and GitHub CLI must be green. Portless and Cursor stay optional.
+            </p>
             <ul className="mt-4 space-y-2">
               {deps.map((item) => (
                 <li key={item.id} className="rounded-lg border border-[var(--rule)] bg-[var(--card)] px-4 py-3">

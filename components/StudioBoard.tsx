@@ -20,9 +20,9 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CreateProjectDialog } from "./CreateProjectDialog";
-import { ProjectPane } from "./ProjectPane";
 import { SetupWizard } from "./SetupWizard";
 import { TrashConfirm } from "./TrashConfirm";
 import { hasLocalCopy, isGitOnly } from "@/lib/project";
@@ -210,6 +210,7 @@ function ColumnLane({
 }
 
 export function StudioBoard() {
+  const router = useRouter();
   const [columns, setColumns] = useState<Column[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [query, setQuery] = useState("");
@@ -217,7 +218,6 @@ export function StudioBoard() {
   const [showTrash, setShowTrash] = useState(false);
   const [trashPath, setTrashPath] = useState("");
   const [cloneRoot, setCloneRoot] = useState("");
-  const [selected, setSelected] = useState<Project | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -229,7 +229,9 @@ export function StudioBoard() {
   const [bulkTrashOpen, setBulkTrashOpen] = useState(false);
   const [bulkTrashing, setBulkTrashing] = useState(false);
   const [presence, setPresence] = useState<"all" | "disk" | "git">("all");
+  const [menuOpen, setMenuOpen] = useState(false);
   const dragging = useRef(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -250,10 +252,6 @@ export function StudioBoard() {
       if (data.settings.cloneRoot) setCloneRoot(data.settings.cloneRoot);
       if (!data.settings.setupComplete) setSetupOpen(true);
     }
-    setSelected((current) => {
-      if (!current) return current;
-      return data.projects.find((project) => project.id === current.id) || current;
-    });
   }
 
   useEffect(() => {
@@ -275,6 +273,17 @@ export function StudioBoard() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuOpen]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -377,9 +386,9 @@ export function StudioBoard() {
       }
       return [...current, project];
     });
-    setSelected(project);
     setManualOpen(false);
     flash(message);
+    router.push(`/projects/${encodeURIComponent(project.id)}`);
   }
 
   async function importGithub() {
@@ -418,12 +427,11 @@ export function StudioBoard() {
 
   function replaceProject(next: Project) {
     setProjects((current) => current.map((project) => (project.id === next.id ? next : project)));
-    setSelected((current) => (current?.id === next.id ? next : current));
   }
 
   function openProject(project: Project) {
     if (dragging.current) return;
-    setSelected(project);
+    router.push(`/projects/${encodeURIComponent(project.id)}`);
   }
 
   function onDragStart(event: DragStartEvent) {
@@ -495,57 +503,110 @@ export function StudioBoard() {
             </button>
           ))}
         </div>
-        <label className="text-sm text-[var(--ink-soft)]">
-          <input className="mr-1" type="checkbox" checked={showHidden} onChange={(event) => setShowHidden(event.target.checked)} />
-          Hidden
-        </label>
-        <button className="rounded-full bg-[var(--ink)] px-4 py-2 text-[var(--paper)]" onClick={scan} disabled={busy}>
-          {busy ? "Scanning…" : "Scan"}
-        </button>
-        <button className="rounded-full border border-[var(--ink)] px-3 py-2" onClick={() => setManualOpen(true)}>
+        <button className="rounded-full bg-[var(--ink)] px-4 py-2 text-[var(--paper)]" onClick={() => setManualOpen(true)}>
           Add
         </button>
-        <button className="rounded-full border border-[var(--ink)] px-3 py-2" onClick={() => void syncBackend()} disabled={busy}>
-          {busy ? "…" : "Sync"}
-        </button>
-        <button className="rounded-full border border-[var(--moss)] px-3 py-2" onClick={() => void importGithub()} disabled={busy}>
-          Import GitHub
-        </button>
-        <button className="rounded-full border border-[var(--rule)] px-3 py-2" onClick={addColumn}>
-          + Column
-        </button>
-        <button
-          className={`rounded-full border px-3 py-2 ${selectMode ? "border-[var(--clay)] bg-[var(--clay)] text-white" : "border-[var(--rule)]"}`}
-          onClick={() => {
-            setSelectMode((current) => {
-              if (current) setCheckedIds(new Set());
-              return !current;
-            });
-          }}
-          disabled={showTrash}
-        >
-          {selectMode ? "Exit bulk delete" : "Bulk delete"}
-        </button>
-        <button
-          className={`rounded-full border px-3 py-2 ${showTrash ? "border-[var(--clay)] bg-[var(--clay)] text-white" : "border-[var(--rule)]"}`}
-          onClick={() => {
-            setShowTrash((current) => !current);
-            setSelected(null);
-            setSelectMode(false);
-            setCheckedIds(new Set());
-          }}
-        >
-          Trash ({projects.filter((project) => project.trashed).length})
-        </button>
-        <Link className="px-1 text-sm underline decoration-[var(--amber)] underline-offset-4" href="/catalog">
-          Catalog
-        </Link>
-        <Link className="px-1 text-sm underline decoration-[var(--amber)] underline-offset-4" href="/settings">
-          Settings
-        </Link>
-        <Link className="px-1 text-sm underline decoration-[var(--amber)] underline-offset-4" href="/setup">
-          Setup
-        </Link>
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            className={`rounded-full border px-3 py-2 ${menuOpen || showTrash || selectMode ? "border-[var(--ink)] bg-[var(--card)]" : "border-[var(--rule)]"}`}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={() => setMenuOpen((current) => !current)}
+          >
+            More
+          </button>
+          {menuOpen ? (
+            <div
+              role="menu"
+              className="absolute right-0 z-30 mt-2 w-56 rounded-lg border border-[var(--rule)] bg-[var(--card)] p-1 shadow-lg"
+            >
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)] disabled:opacity-40"
+                disabled={busy}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void scan();
+                }}
+              >
+                {busy ? "Scanning…" : "Scan folders"}
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)] disabled:opacity-40"
+                disabled={busy}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void syncBackend();
+                }}
+              >
+                Sync backend
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)] disabled:opacity-40"
+                disabled={busy}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void importGithub();
+                }}
+              >
+                Import GitHub
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)]"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void addColumn();
+                }}
+              >
+                Add column
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)] disabled:opacity-40"
+                disabled={showTrash}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setSelectMode((current) => {
+                    if (current) setCheckedIds(new Set());
+                    return !current;
+                  });
+                }}
+              >
+                {selectMode ? "Exit bulk delete" : "Bulk delete"}
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)]"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShowTrash((current) => !current);
+                  setSelectMode(false);
+                  setCheckedIds(new Set());
+                }}
+              >
+                {showTrash ? "Back to wall" : `Trash (${projects.filter((project) => project.trashed).length})`}
+              </button>
+              <label className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]">
+                <input type="checkbox" checked={showHidden} onChange={(event) => setShowHidden(event.target.checked)} />
+                Show hidden
+              </label>
+              <div className="my-1 border-t border-[var(--rule)]" />
+              <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/catalog" onClick={() => setMenuOpen(false)}>
+                Catalog
+              </Link>
+              <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/settings" onClick={() => setMenuOpen(false)}>
+                Settings
+              </Link>
+              <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/setup" onClick={() => setMenuOpen(false)}>
+                Setup
+              </Link>
+            </div>
+          ) : null}
+        </div>
       </header>
 
       {selectMode && !showTrash ? (
@@ -584,6 +645,9 @@ export function StudioBoard() {
         <main className="min-w-0 flex-1 overflow-x-auto px-4 py-4">
           {showTrash ? (
             <div className="mx-auto flex max-w-xl flex-col gap-2">
+              <button className="mb-1 text-left text-sm text-[var(--amber)]" type="button" onClick={() => setShowTrash(false)}>
+                ← Studio wall
+              </button>
               <p className="mb-2 text-sm text-[var(--ink-soft)]">
                 Folders moved to <span className="font-mono text-xs">{trashPath || "(not set)"}</span>
               </p>
@@ -592,7 +656,7 @@ export function StudioBoard() {
               ) : (
                 visible.map((project) => (
                   <button key={project.id} className="text-left" type="button" onClick={() => openProject(project)}>
-                    <CardFace project={project} active={selected?.id === project.id} />
+                    <CardFace project={project} />
                   </button>
                 ))
               )}
@@ -613,7 +677,7 @@ export function StudioBoard() {
                 <ColumnLane
                   key={`${column.id}:${column.title}`}
                   column={column}
-                  selectedId={selected?.id ?? null}
+                  selectedId={null}
                   checkedIds={checkedIds}
                   selectMode={selectMode}
                   projects={visible
@@ -632,31 +696,6 @@ export function StudioBoard() {
           </DndContext>
           )}
         </main>
-
-        <ProjectPane
-          project={selected}
-          columns={columns}
-          trashPath={trashPath}
-          cloneRoot={cloneRoot}
-          onChange={replaceProject}
-          onMove={(projectId, columnId) => void moveProject(projectId, columnId)}
-          onToast={flash}
-          onTrashed={(moved, errors) => {
-            for (const project of moved) replaceProject(project);
-            setCheckedIds((current) => {
-              const next = new Set(current);
-              for (const project of moved) next.delete(project.id);
-              return next;
-            });
-            setShowTrash(true);
-            setSelected(moved[0] || null);
-            flash(
-              errors.length
-                ? `Moved ${moved.length}. Failures: ${errors.join(" · ")}`
-                : `Moved to trash: ${moved[0]?.path || ""}`,
-            );
-          }}
-        />
       </div>
 
       {bulkTrashOpen ? (

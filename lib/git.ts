@@ -54,6 +54,15 @@ export function pickFolder(prompt = "Choose the destination folder"): string {
   return resolve(result.stdout.trim().replace(/\/$/, ""));
 }
 
+function isGithubHost(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "github.com" || host.endsWith(".github.com");
+  } catch {
+    return false;
+  }
+}
+
 export function cloneIntoParent(remoteUrl: string, parent: string, folderName?: string): string {
   const parentPath = resolve(expandHome(parent));
   const name = folderName || repoFolderName(remoteUrl);
@@ -65,6 +74,31 @@ export function cloneIntoParent(remoteUrl: string, parent: string, folderName?: 
   if (existsSync(destination)) {
     throw new GitError(`${destination} already exists`);
   }
+
+  const normalized = normalizeRemote(remoteUrl);
+  if (!normalized) throw new GitError("Invalid Git URL");
+
+  if (isGithubHost(normalized)) {
+    const auth = spawnSync("gh", ["auth", "status"], {
+      encoding: "utf8",
+      timeout: 8000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (auth.status !== 0) {
+      throw new GitError("GitHub CLI is required to download projects. Install gh and run `gh auth login`.");
+    }
+    const cloned = spawnSync("gh", ["repo", "clone", normalized, destination], {
+      encoding: "utf8",
+      timeout: 180000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (cloned.status !== 0) {
+      const detail = (cloned.stderr || cloned.stdout || "").trim().split("\n").slice(-4).join(" ");
+      throw new GitError(detail || "Could not clone with GitHub CLI");
+    }
+    return destination;
+  }
+
   const result = spawnSync("git", ["clone", cloneUrl(remoteUrl), destination], {
     encoding: "utf8",
     timeout: 180000,

@@ -50,7 +50,8 @@ export function CloneDialog({ name, catalogId, projectId, url, defaultParent, on
         <h2 className="mt-1 font-[family-name:var(--font-serif)] text-2xl">{name}</h2>
         <p className="mt-2 break-all font-mono text-xs text-[var(--ink-soft)]">{url}</p>
         <p className="mt-3 text-sm text-[var(--ink-soft)]">
-          A folder named <span className="font-mono text-xs">{name}</span> will be created inside the destination you choose.
+          GitHub CLI clones this repo (`gh repo clone`) into a folder named{" "}
+          <span className="font-mono text-xs">{name}</span> inside the destination you choose.
         </p>
         <label className="mt-4 block text-sm">
           Destination folder

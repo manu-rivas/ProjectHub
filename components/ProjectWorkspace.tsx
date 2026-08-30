@@ -1,9 +1,10 @@
 "use client";
 
 import { api } from "@/lib/client";
+import { isGitOnly } from "@/lib/project";
 import type { Column, DocPreview, Project, ProjectAction, PublishedState } from "@/lib/types";
 import { CARD_COLORS } from "@/lib/types";
-import { isGitOnly } from "@/lib/project";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CloneDialog } from "./CloneDialog";
 import { IdeaBoard } from "./IdeaBoard";
@@ -12,7 +13,7 @@ import { MarkdownView } from "./MarkdownView";
 import { TrashConfirm } from "./TrashConfirm";
 
 type Props = {
-  project: Project | null;
+  project: Project;
   columns: Column[];
   onChange: (project: Project) => void;
   onMove: (projectId: string, columnId: string) => void;
@@ -32,25 +33,7 @@ function publishedLabel(project: Project): string {
   return project.publishedHint ? "Looks published" : "Unmarked";
 }
 
-export function ProjectPane(props: Props) {
-  if (!props.project) {
-    return (
-      <aside className="doc-pane flex w-[min(42vw,34rem)] shrink-0 flex-col">
-        <div className="flex h-full flex-col items-start justify-center px-8 text-[var(--ink-soft)]">
-          <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em]">Documentation</p>
-          <p className="mt-3 font-[family-name:var(--font-serif)] text-3xl text-[var(--ink)]">Pick a card</p>
-          <p className="mt-3 max-w-sm text-sm leading-relaxed">
-            Open a project to use its Trello-style board, write README / PRODUCT / AGENTS, or run actions. Drag the
-            studio card to change status.
-          </p>
-        </div>
-      </aside>
-    );
-  }
-  return <ProjectPaneBody key={props.project.id} {...props} project={props.project} />;
-}
-
-function ProjectPaneBody({
+export function ProjectWorkspace({
   project,
   columns,
   onChange,
@@ -59,7 +42,7 @@ function ProjectPaneBody({
   onTrashed,
   trashPath,
   cloneRoot,
-}: Props & { project: Project }) {
+}: Props) {
   const [notes, setNotes] = useState(project.notes);
   const [name, setName] = useState(project.name);
   const [docs, setDocs] = useState<DocPreview[]>([]);
@@ -92,7 +75,7 @@ function ProjectPaneBody({
     return () => {
       cancelled = true;
     };
-  }, [project.id]);
+  }, [project.id, project.path, project.missing]);
 
   useEffect(() => {
     fetch("/api/templates")
@@ -104,7 +87,6 @@ function ProjectPaneBody({
   }, []);
 
   const activeDoc = useMemo(() => docs.find((doc) => doc.name === tab), [docs, tab]);
-
   const current = project;
 
   async function save(patch: Partial<Project>) {
@@ -253,19 +235,21 @@ function ProjectPaneBody({
   ];
 
   return (
-    <aside className={`doc-pane flex shrink-0 flex-col ${tab === "ideas" ? "w-[min(58vw,46rem)]" : "w-[min(42vw,34rem)]"}`}>
-      <header className="border-b border-[var(--rule)] px-5 py-4">
-        <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--ink-soft)]">This window</p>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="border-b border-[var(--rule)] px-6 py-5">
+        <Link href="/" className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--amber)]">
+          ← Studio wall
+        </Link>
         <input
-          className="mt-1 w-full bg-transparent font-[family-name:var(--font-serif)] text-2xl outline-none"
+          className="mt-2 w-full bg-transparent font-[family-name:var(--font-serif)] text-4xl outline-none"
           value={name}
           onChange={(event) => setName(event.target.value)}
           onBlur={() => name.trim() && name !== project.name && save({ name: name.trim() })}
         />
-        <p className="mt-1 break-all font-mono text-[11px] text-[var(--ink-soft)]">
+        <p className="mt-1 break-all font-mono text-[12px] text-[var(--ink-soft)]">
           {project.path || project.remoteUrl || "No local folder"}
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-label="Card color">
+        <div className="mt-4 flex flex-wrap items-center gap-1.5" aria-label="Card color">
           <button
             type="button"
             className={`h-6 w-6 rounded-full border-2 ${!project.color ? "scale-110 border-[var(--ink)] ring-2 ring-[var(--amber)] ring-offset-1" : "border-[var(--rule)]"}`}
@@ -286,7 +270,7 @@ function ProjectPaneBody({
             />
           ))}
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <label className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">
             Column
             <select
@@ -315,22 +299,22 @@ function ProjectPaneBody({
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-[var(--ink-soft)]">
+        <p className="mt-2 text-sm text-[var(--ink-soft)]">
           {publishedLabel(project)}
           {project.remoteUrl ? ` · ${project.remoteUrl}` : " · no remote"}
         </p>
         {isGitOnly(project) ? (
-          <p className="mt-2 rounded-md bg-[var(--paper-deep)] px-3 py-2 text-xs text-[var(--ink-soft)]">
-            Not on this machine. The board remembers it; clone it when you want a local copy.
+          <p className="mt-3 max-w-2xl rounded-md bg-[var(--paper-deep)] px-3 py-2 text-sm text-[var(--ink-soft)]">
+            Not on this machine. Clone it with GitHub CLI (`gh repo clone`) when you want a local copy.
           </p>
         ) : null}
       </header>
 
-      <nav className="flex gap-1 overflow-x-auto border-b border-[var(--rule)] px-3 pt-2">
+      <nav className="flex gap-1 overflow-x-auto border-b border-[var(--rule)] px-4 pt-2">
         {tabs.map((item) => (
           <button
             key={item.id}
-            className={`rounded-t-md px-3 py-2 text-sm ${
+            className={`rounded-t-md px-4 py-2 text-sm ${
               tab === item.id ? "bg-[var(--card)] font-semibold" : "text-[var(--ink-soft)]"
             }`}
             onClick={() => {
@@ -347,11 +331,11 @@ function ProjectPaneBody({
         ))}
       </nav>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         {tab === "ideas" ? (
           <IdeaBoard project={project} onChange={onChange} onToast={onToast} />
         ) : tab === "notes" ? (
-          <div className="flex h-full min-h-64 flex-col">
+          <div className="mx-auto flex h-full min-h-64 max-w-3xl flex-col">
             <div className="mb-2 flex justify-end">
               <button
                 className="text-sm text-[var(--amber)]"
@@ -369,7 +353,7 @@ function ProjectPaneBody({
             />
           </div>
         ) : tab === "actions" ? (
-          <div className="space-y-3">
+          <div className="mx-auto max-w-3xl space-y-3">
             <p className="text-sm text-[var(--ink-soft)]">
               Start the project, open a tool, or add your own command. Commands run from the project folder.
             </p>
@@ -413,7 +397,7 @@ function ProjectPaneBody({
             </form>
           </div>
         ) : activeDoc?.exists ? (
-          <div>
+          <div className="mx-auto max-w-3xl">
             <div className="mb-3 flex justify-end gap-3">
               <button
                 className="text-sm text-[var(--amber)]"
@@ -442,7 +426,7 @@ function ProjectPaneBody({
             )}
           </div>
         ) : (
-          <div className="space-y-3 text-sm">
+          <div className="mx-auto max-w-3xl space-y-3 text-sm">
             <p className="text-[var(--ink-soft)]">
               {tab} is not in the project root yet. Create it from a template, or write it here.
             </p>
@@ -481,13 +465,13 @@ function ProjectPaneBody({
                 </button>
               </>
             ) : (
-              <p className="text-[var(--ink-soft)]">Clone or create a local folder first.</p>
+              <p className="text-[var(--ink-soft)]">Clone with GitHub CLI or create a local folder first.</p>
             )}
           </div>
         )}
       </div>
 
-      <footer className="grid grid-cols-3 gap-2 border-t border-[var(--rule)] bg-[var(--paper-deep)] px-5 py-3">
+      <footer className="grid grid-cols-3 gap-2 border-t border-[var(--rule)] bg-[var(--paper-deep)] px-6 py-3 sm:grid-cols-6">
         <button className="rounded-md bg-[var(--ink)] py-2 text-[var(--paper)] disabled:opacity-40" onClick={() => open("cursor")} disabled={!onDisk}>
           {opening === "cursor" ? "…" : "Cursor"}
         </button>
@@ -507,23 +491,23 @@ function ProjectPaneBody({
           Start
         </button>
         {project.remoteUrl ? (
-          <button className="col-span-3 rounded-md border border-[var(--moss)] py-2 text-sm" type="button" onClick={() => setCloneOpen(true)}>
+          <button className="col-span-3 rounded-md border border-[var(--moss)] py-2 text-sm sm:col-span-6" type="button" onClick={() => setCloneOpen(true)}>
             {onDisk ? "Clone again…" : "Bring to this machine…"}
           </button>
         ) : null}
         {onDisk ? (
-          <button className="col-span-3 rounded-md border border-[var(--ink)] py-2 text-sm" type="button" onClick={() => setLocalDeleteOpen(true)}>
+          <button className="col-span-3 rounded-md border border-[var(--ink)] py-2 text-sm sm:col-span-6" type="button" onClick={() => setLocalDeleteOpen(true)}>
             Delete local folder…
           </button>
         ) : null}
         {project.trashed ? (
-          <p className="col-span-3 text-center text-xs text-[var(--clay)]">In trash · {project.path}</p>
+          <p className="col-span-3 text-center text-xs text-[var(--clay)] sm:col-span-6">In trash · {project.path}</p>
         ) : onDisk ? (
-          <button className="col-span-3 text-sm text-[var(--clay)]" type="button" onClick={() => setTrashOpen(true)}>
+          <button className="col-span-3 text-sm text-[var(--clay)] sm:col-span-6" type="button" onClick={() => setTrashOpen(true)}>
             Move to trash…
           </button>
         ) : (
-          <p className="col-span-3 text-center text-xs text-[var(--ink-soft)]">
+          <p className="col-span-3 text-center text-xs text-[var(--ink-soft)] sm:col-span-6">
             No local folder{project.remoteUrl ? " · it lives on Git" : ""}. Trash does not apply.
           </p>
         )}
@@ -560,6 +544,6 @@ function ProjectPaneBody({
           onConfirm={(confirmName) => void deleteLocal(confirmName)}
         />
       ) : null}
-    </aside>
+    </div>
   );
 }

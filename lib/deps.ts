@@ -76,14 +76,14 @@ export function probeDependencies(): DepStatus[] {
     {
       id: "gh",
       label: "GitHub CLI",
-      optional: true,
+      optional: false,
       ok: Boolean(ghPath) && ghAuthed,
       version: ghPath ? versionOf("gh", ["--version"]) : "",
       hint: !ghPath
-        ? "Optional. Needed only if you choose the GitHub backend."
+        ? "Required. ProjectHub uses gh to clone, import, and talk to GitHub. Install from cli.github.com"
         : ghAuthed
-          ? "Authenticated. GitHub backend is available."
-          : "Installed, but not signed in. Run `gh auth login` to use the GitHub backend.",
+          ? "Signed in. You can clone, import repos, and use the GitHub backend."
+          : "Installed, but not signed in. Run `gh auth login` so clones and imports work.",
     },
     {
       id: "portless",
