@@ -543,6 +543,9 @@ export function StudioBoard() {
         <Link className="px-1 text-sm underline decoration-[var(--amber)] underline-offset-4" href="/settings">
           Settings
         </Link>
+        <Link className="px-1 text-sm underline decoration-[var(--amber)] underline-offset-4" href="/setup">
+          Setup
+        </Link>
       </header>
 
       {selectMode && !showTrash ? (

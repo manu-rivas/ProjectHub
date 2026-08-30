@@ -40,8 +40,8 @@ export function ProjectPane(props: Props) {
           <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em]">Documentation</p>
           <p className="mt-3 font-[family-name:var(--font-serif)] text-3xl text-[var(--ink)]">Pick a card</p>
           <p className="mt-3 max-w-sm text-sm leading-relaxed">
-            Open a project to read or write its README, PRODUCT, and AGENTS files. Drag the card to another column to
-            change its status.
+            Open a project to use its Trello-style board, write README / PRODUCT / AGENTS, or run actions. Drag the
+            studio card to change status.
           </p>
         </div>
       </aside>
@@ -246,14 +246,14 @@ function ProjectPaneBody({
       ];
 
   const tabs: { id: Tab; label: string; badge?: boolean }[] = [
-    { id: "ideas", label: "Ideas", badge: (project.ideas?.cards.length || 0) > 0 },
+    { id: "ideas", label: "Board", badge: (project.ideas?.cards.length || 0) > 0 },
     { id: "notes", label: "Notes" },
     { id: "actions", label: "Actions", badge: actions.length > 0 },
     ...docTabs,
   ];
 
   return (
-    <aside className="doc-pane flex w-[min(42vw,34rem)] shrink-0 flex-col">
+    <aside className={`doc-pane flex shrink-0 flex-col ${tab === "ideas" ? "w-[min(58vw,46rem)]" : "w-[min(42vw,34rem)]"}`}>
       <header className="border-b border-[var(--rule)] px-5 py-4">
         <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--ink-soft)]">This window</p>
         <input

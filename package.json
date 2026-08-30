@@ -5,9 +5,10 @@
   "license": "MIT",
   "description": "A local studio board for the projects you start, park, and forget.",
   "scripts": {
-    "dev": "next dev --hostname 127.0.0.1 --port 3456",
+    "dev": "node scripts/launch.mjs",
+    "dev:plain": "next dev --hostname 127.0.0.1 --port 3456",
     "build": "next build",
-    "start": "next start --hostname 127.0.0.1 --port 3456",
+    "start": "node scripts/launch.mjs start",
     "lint": "eslint"
   },
   "dependencies": {

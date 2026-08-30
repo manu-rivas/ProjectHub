@@ -10,7 +10,14 @@ export const CARD_COLORS: { id: CardColor; label: string; swatch: string }[] = [
 ];
 
 export type PublishedState = "unset" | "yes" | "no";
-export type StorageBackend = "json" | "sqlite";
+export type StorageBackend = "json" | "sqlite" | "github" | "supabase";
+
+export const STORAGE_BACKENDS: { id: StorageBackend; name: string; description: string }[] = [
+  { id: "json", name: "Local JSON", description: "Just ~/.projecthub/store.json. No extra tools." },
+  { id: "sqlite", name: "SQLite", description: "Local database file. Fast, private, no account." },
+  { id: "github", name: "GitHub", description: "Private projecthub-data repo via gh. Needs GitHub CLI." },
+  { id: "supabase", name: "Supabase", description: "Hosted Postgres. Paste a project URL and service role key." },
+];
 
 export type Column = {
   id: string;
@@ -23,6 +30,9 @@ export type IdeaCard = {
   columnId: string;
   title: string;
   order: number;
+  body: string;
+  color: CardColor | null;
+  labels: string[];
 };
 
 export type IdeasBoard = {
@@ -87,6 +97,7 @@ export type Settings = {
   githubToken: string;
   storage: StorageBackend;
   setupComplete: boolean;
+  usePortless: boolean;
 };
 
 export type PublicSettings = {
@@ -98,6 +109,8 @@ export type PublicSettings = {
   githubTokenSet: boolean;
   storage: StorageBackend;
   setupComplete: boolean;
+  usePortless: boolean;
+  supabaseConfigured: boolean;
 };
 
 export type Store = {

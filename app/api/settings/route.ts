@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { probeDependencies } from "@/lib/deps";
 import { expandHome } from "@/lib/paths";
 import { sqliteStatus } from "@/lib/sqlite";
 import { publicSettings, readStore, writeStore } from "@/lib/store";
+import { supabaseStatus } from "@/lib/supabase";
+import type { StorageBackend } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +15,8 @@ export async function GET() {
     ok: true,
     settings: publicSettings(store.settings),
     database: sqliteStatus(),
+    supabase: await supabaseStatus(),
+    deps: probeDependencies(),
   });
 }
 
@@ -22,6 +27,8 @@ export async function PATCH(request: Request) {
     ignore?: string[];
     trashPath?: string;
     cloneRoot?: string;
+    usePortless?: boolean;
+    storage?: StorageBackend;
   };
   const store = readStore();
   if (Array.isArray(body.scanRoots)) {
@@ -39,7 +46,19 @@ export async function PATCH(request: Request) {
   if (typeof body.cloneRoot === "string") {
     store.settings.cloneRoot = expandHome(body.cloneRoot) || store.settings.cloneRoot;
   }
+  if (typeof body.usePortless === "boolean") {
+    store.settings.usePortless = body.usePortless;
+  }
+  if (body.storage === "json" || body.storage === "sqlite") {
+    store.settings.storage = body.storage;
+  }
   store.settings.githubToken = "";
   writeStore(store);
-  return NextResponse.json({ ok: true, settings: publicSettings(store.settings), database: sqliteStatus() });
+  return NextResponse.json({
+    ok: true,
+    settings: publicSettings(store.settings),
+    database: sqliteStatus(),
+    supabase: await supabaseStatus(),
+    deps: probeDependencies(),
+  });
 }

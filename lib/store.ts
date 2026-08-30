@@ -3,8 +3,12 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { newId, projectIdFromRemote } from "./id";
 import { remoteKey } from "./git";
+import { supabaseConfigured } from "./secrets";
 import { readSqliteStore, sqliteExists, writeSqliteStore } from "./sqlite";
-import type { CatalogEntry, Column, IdeasBoard, Project, Settings, Store } from "./types";
+import { writeSupabaseStore } from "./supabase";
+import type { CatalogEntry, Column, IdeaCard, IdeasBoard, Project, Settings, StorageBackend, Store } from "./types";
+
+const STORAGE_BACKENDS: StorageBackend[] = ["json", "sqlite", "github", "supabase"];
 
 export const STORE_PATH = join(homedir(), ".projecthub", "store.json");
 export const CATALOG_PATH = join(homedir(), ".projecthub", "catalog.json");
@@ -22,14 +26,15 @@ export function defaultSettings(): Settings {
     githubToken: "",
     storage: "json",
     setupComplete: false,
+    usePortless: false,
   };
 }
 
 export function defaultIdeaBoard(): IdeasBoard {
   return {
     columns: [
-      { id: "idea-inbox", title: "Ideas", order: 0 },
-      { id: "idea-doing", title: "Cooking", order: 1 },
+      { id: "idea-inbox", title: "Backlog", order: 0 },
+      { id: "idea-doing", title: "Doing", order: 1 },
       { id: "idea-done", title: "Done", order: 2 },
     ],
     cards: [],
@@ -50,6 +55,20 @@ function emptyStore(): Store {
   return { version: 1, settings: defaultSettings(), columns: defaultColumns(), projects: [], catalog: [] };
 }
 
+function normalizeCard(card: IdeaCard): IdeaCard {
+  return {
+    ...card,
+    body: card.body ?? "",
+    color: card.color ?? null,
+    labels: Array.isArray(card.labels) ? card.labels : [],
+  };
+}
+
+function normalizeIdeas(ideas: IdeasBoard | undefined): IdeasBoard {
+  if (!ideas || !Array.isArray(ideas.columns) || !Array.isArray(ideas.cards)) return defaultIdeaBoard();
+  return { columns: ideas.columns, cards: ideas.cards.map(normalizeCard) };
+}
+
 function normalizeProject(project: Project): Project {
   return {
     ...project,
@@ -58,17 +77,15 @@ function normalizeProject(project: Project): Project {
     color: project.color ?? null,
     actions: Array.isArray(project.actions) ? project.actions : [],
     templateId: project.templateId ?? null,
-    ideas:
-      project.ideas && Array.isArray(project.ideas.columns) && Array.isArray(project.ideas.cards)
-        ? project.ideas
-        : defaultIdeaBoard(),
+    ideas: normalizeIdeas(project.ideas),
   };
 }
 
 function normalizeStore(parsed: Partial<Store>): Store {
   const base = emptyStore();
   const settings = { ...base.settings, ...parsed.settings, githubToken: "" };
-  if (settings.storage !== "sqlite") settings.storage = "json";
+  if (!STORAGE_BACKENDS.includes(settings.storage)) settings.storage = "json";
+  settings.usePortless = Boolean(settings.usePortless);
   const hadData =
     (Array.isArray(parsed.projects) && parsed.projects.length > 0) ||
     (Array.isArray(parsed.catalog) && parsed.catalog.length > 0) ||
@@ -144,6 +161,8 @@ export function publicSettings(settings: Settings) {
     githubTokenSet: false,
     storage: settings.storage,
     setupComplete: Boolean(settings.setupComplete),
+    usePortless: Boolean(settings.usePortless),
+    supabaseConfigured: supabaseConfigured(),
   };
 }
 
@@ -215,11 +234,21 @@ export function writeStore(store: Store): void {
   if (store.settings.storage === "sqlite") {
     writeSqliteStore(store);
   }
+  if (store.settings.storage === "supabase") {
+    void writeSupabaseStore(store).catch(() => undefined);
+  }
 }
 
 export function initializeSqlite(store = readStore()): Store {
   store.settings.storage = "sqlite";
   writeSqliteStore(store);
+  writeStore(store);
+  return readStore();
+}
+
+export function setStorageBackend(store: Store, storage: StorageBackend): Store {
+  store.settings.storage = STORAGE_BACKENDS.includes(storage) ? storage : "json";
+  if (store.settings.storage === "sqlite") writeSqliteStore(store);
   writeStore(store);
   return readStore();
 }

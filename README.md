@@ -17,10 +17,10 @@ Vibe coding makes it cheap to start a repo and expensive to remember what it was
 - Import GitHub remotes that are not cloned yet
 - Create a new project from a markdown template (`README.md`, `PRODUCT.md`, `AGENTS.md`)
 - Edit those files in the side pane
-- Per-project idea board
+- Per-project Trello-style board (columns, colors, labels)
+- First-run setup that checks Node, Git, pnpm, optional `gh` and Portless
+- Backend picker: local JSON, SQLite, GitHub, or Supabase
 - Actions: start `dev` / `start`, open Cursor, VS Code, the folder, or a terminal, plus custom commands
-- Optional SQLite database, initialized from the UI
-- Optional private GitHub backend (`your-user/projecthub-data`) via `gh`
 - Local trash that moves folders on disk (with a typed confirmation)
 
 ## Requirements
@@ -41,9 +41,11 @@ pnpm dev
 
 Open [http://127.0.0.1:3456](http://127.0.0.1:3456).
 
-On first launch, a setup wizard asks for scan roots, a clone destination, and whether to initialize SQLite or the GitHub backend.
+On first launch, a setup screen checks this machine (Node, Git, pnpm, plus optional `gh` and [Portless](https://github.com/vercel-labs/portless)) and lets you pick a backend.
 
-macOS: double-click `Arrancar ProjectHub.command` (kept for existing users) or `Start ProjectHub.command`.
+If Portless is installed **and** you turn it on in setup, `pnpm dev` opens `https://projecthub.localhost`. If Portless is missing, ProjectHub stays on [http://127.0.0.1:3456](http://127.0.0.1:3456). It never requires Portless.
+
+macOS: double-click `Arrancar ProjectHub.command` or `Start ProjectHub.command`. Re-run setup anytime at `/setup`.
 
 ## Data
 
@@ -51,10 +53,17 @@ macOS: double-click `Arrancar ProjectHub.command` (kept for existing users) or `
 | --- | --- |
 | `~/.projecthub/store.json` | Always written. Safe backup and the default backend. |
 | `~/.projecthub/catalog.json` | Export of the catalog |
-| `~/.projecthub/hub.db` | Optional SQLite copy, created from Settings or first-run setup |
+| `~/.projecthub/hub.db` | Optional SQLite copy |
+| `~/.projecthub/secrets.json` | Supabase URL and key. Never synced to GitHub. |
 | `~/.projecthub/sync/` | Local clone of the optional `projecthub-data` GitHub repo |
 
+Pick one live backend in setup: local JSON, SQLite, GitHub (`gh`), or Supabase. JSON is always written as a backup.
+
 Existing boards keep working. Initializing SQLite copies the current store; it does not delete JSON. Column titles you already renamed stay as they are.
+
+## Per-project board
+
+Each project has its own Trello-style board (Backlog / Doing / Done by default). Add columns, drag cards, set color and labels. This is separate from the studio wall of projects.
 
 ## Templates
 
