@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ProjectHub
 
-## Getting Started
+A local studio board for people who vibe-code too many projects.
 
-First, run the development server:
+Scan folders, pin GitHub remotes that are not on disk, park ideas on a project page, write the README there, and start the project without hunting for the folder.
+
+ProjectHub is a **personal open-source app**. It is not a hosted SaaS and not Jira. It runs on your machine at `127.0.0.1`. Your board lives in `~/.projecthub`.
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-c4782a.svg)](LICENSE)
+[![Node.js 22+](https://img.shields.io/badge/node-22%2B-2f5d50.svg)](https://nodejs.org)
+[![pnpm](https://img.shields.io/badge/pnpm-11-3d4a3a.svg)](https://pnpm.io)
+
+![ProjectHub studio wall](docs/studio.png)
+
+## Why it exists
+
+Vibe coding makes it cheap to start a repo and expensive to remember what it was for. ProjectHub is the index-card wall: columns for status, a page per project for notes and docs, and actions to open or start the thing again.
+
+## Features
+
+- Studio kanban with color-coded cards, search, and All / On disk / Git only
+- Scan local folders (git repos and common project markers)
+- Import GitHub remotes that are not cloned yet (`gh repo clone` when you want a copy)
+- Create a project from a markdown template (`README.md`, `PRODUCT.md`, `AGENTS.md`)
+- Quick pane on the wall; full project page for board, notes, wiki, icon, and actions
+- Per-project board with columns, kinds, points, sprints, and a full-screen view
+- Docs as a wiki: sidebar of markdown pages, `[[PRODUCT]]` links, on-this-page outline
+- First-run setup: Node, Git, pnpm, and GitHub CLI (`gh`)
+- Backend picker: local JSON, SQLite, GitHub, or Supabase (JSON is always written as backup)
+- Open Cursor, VS Code, Codex, the folder, or a terminal; start `dev` / `start` or a custom command
+- Local trash that moves folders on disk (typed confirmation)
+
+![Project wiki](docs/wiki.png)
+
+## Requirements
+
+- Node.js 22+
+- [pnpm](https://pnpm.io)
+- [GitHub CLI](https://cli.github.com/) (`gh auth login`) — required to clone, import, and talk to GitHub
+- Optional: [Portless](https://github.com/vercel-labs/portless) for `https://projecthub.localhost`
+- Optional: Cursor, VS Code, or Codex if you want those open buttons
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+git clone https://github.com/manu-rivas/ProjectHub.git
+cd ProjectHub
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://127.0.0.1:3456](http://127.0.0.1:3456).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+On first launch, a setup screen checks this machine and lets you pick a backend.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+If Portless is installed **and** you turn it on in setup, `pnpm dev` also serves [https://projecthub.localhost](https://projecthub.localhost). If Portless is missing, ProjectHub stays on port 3456. It never requires Portless.
 
-## Learn More
+macOS: double-click `Start ProjectHub.command` or `Arrancar ProjectHub.command`. Re-run setup anytime at `/setup`.
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm dev      # 127.0.0.1:3456 (and projecthub.localhost if Portless is on)
+pnpm build
+pnpm start
+pnpm lint
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## How it works
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Click a card on the studio wall for the **quick pane** (open tools, color, clone). **Open project page** goes to `/projects/[id]`.
 
-## Deploy on Vercel
+The **Docs** tab is a wiki of markdown files in the project root. Link pages with `[[PRODUCT]]` or `[text](AGENTS.md)`. Add extra pages such as `NOTES.md`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Each project also has its own idea board (Backlog / Doing / Done by default). That board is separate from the studio wall. Full screen: `/projects/[id]/board`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+When you create a project, pick a template:
+
+| Template | What you get |
+| --- | --- |
+| Blank | Empty README / PRODUCT / AGENTS |
+| Web app | How to run it, what it promises |
+| Library | API-first docs |
+| Experiment | Hypothesis and keep/kill |
+| Agent / MCP | Tools and hard limits |
+
+Copy or edit templates at `/templates`.
+
+## Data
+
+| Path | Role |
+| --- | --- |
+| `~/.projecthub/store.json` | Always written. Safe backup and the default backend. |
+| `~/.projecthub/catalog.json` | Export of the catalog |
+| `~/.projecthub/hub.db` | Optional SQLite copy |
+| `~/.projecthub/secrets.json` | Supabase URL and key. Never synced to GitHub. |
+| `~/.projecthub/sync/` | Local clone of the optional `projecthub-data` GitHub repo |
+
+Pick one live backend in setup: local JSON, SQLite, GitHub (`gh`), or Supabase. JSON is always written as a backup.
+
+ProjectHub never stores a GitHub token. `gh` is required to clone, import, and optionally sync the board. If you pick the GitHub backend, **Sync** creates or updates a private `projecthub-data` repo and writes `board.json` there.
+
+## Safety
+
+Trash and local-delete are destructive on disk. Trash asks you to type `MOVE TO TRASH`. The older Spanish phrase `MOVER A PAPELERA` is still accepted.
+
+Do not point scan roots at your whole home directory on the first run. Start with the folders where you actually keep repos.
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+- Keep the UI in English.
+- This is a local studio index, not a Jira clone. Prefer a small change that helps you resume a project over new workflow ceremony.
+- JSON in `~/.projecthub/store.json` must keep working. Optional backends (SQLite, GitHub, Supabase) must not replace that backup.
+- Portless stays optional.
+
+```bash
+pnpm install
+pnpm dev
+pnpm lint
+```
+
+## License
+
+[MIT](LICENSE) © ProjectHub contributors

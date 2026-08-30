@@ -20,10 +20,15 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ProjectPane } from "./ProjectPane";
+import { CreateProjectDialog } from "./CreateProjectDialog";
+import { ProjectQuickPane } from "./ProjectQuickPane";
+import { SetupWizard } from "./SetupWizard";
 import { TrashConfirm } from "./TrashConfirm";
+import { cardTintClass, cardTintStyle } from "@/lib/color";
 import { hasLocalCopy, isGitOnly } from "@/lib/project";
+import { ProjectMark } from "./ProjectMark";
 
 type BoardResponse = {
   columns: Column[];
@@ -57,31 +62,35 @@ function CardFace({
   dragging?: boolean;
 }) {
   const gitOnly = isGitOnly(project);
-  const tint = project.color ? `index-card-tint-${project.color}` : "";
+  const tint = cardTintClass(project.color);
   return (
     <article
       className={`index-card cursor-grab rounded-md p-3 active:cursor-grabbing ${tint} ${gitOnly ? "index-card-gitonly" : ""} ${active ? "index-card-active" : ""} ${checked ? "index-card-checked" : ""} ${dragging ? "opacity-40" : ""}`}
-      aria-disabled={gitOnly || undefined}
+      style={cardTintStyle(project.color)}
     >
-      <h3 className="pr-4 font-[family-name:var(--font-serif)] text-lg leading-tight">{project.name}</h3>
-      <p className="mt-1 truncate font-mono text-[11px] text-[var(--ink-soft)]">
-        {gitOnly ? project.remoteUrl || "Solo en Git" : project.path || project.remoteUrl || "Sin carpeta local"}
-      </p>
+      <div className="flex items-start gap-3">
+        <ProjectMark project={project} size="sm" />
+        <div className="min-w-0 flex-1">
+          <h3 className="font-[family-name:var(--font-serif)] text-lg leading-tight">{project.name}</h3>
+          <p className="mt-1 truncate font-mono text-[11px] text-[var(--ink-soft)]">
+            {gitOnly ? project.remoteUrl || "Git only" : project.path || project.remoteUrl || "No local folder"}
+          </p>
+        </div>
+      </div>
       <div className="mt-2 flex flex-wrap gap-1">
-        {project.trashed ? <span className="chip chip-gone">Papelera</span> : null}
+        {project.trashed ? <span className="chip chip-gone">Trash</span> : null}
         {gitOnly ? (
-          <span className="chip chip-gone">No en local</span>
+          <span className="chip chip-gone">Not local</span>
         ) : isLive(project) ? (
-          <span className="chip chip-live">Publicado</span>
+          <span className="chip chip-live">Published</span>
         ) : (
           <span className="chip chip-draft">Local</span>
         )}
         {project.remoteUrl && !gitOnly ? <span className="chip chip-live">Git</span> : null}
-        {project.docs.length > 0 ? <span className="chip chip-draft">{project.docs.length} docs</span> : null}
         {(project.ideas?.cards.length || 0) > 0 ? (
           <span className="chip chip-draft">{project.ideas.cards.length} ideas</span>
         ) : null}
-        {project.missing && !project.remoteUrl ? <span className="chip chip-gone">Perdido</span> : null}
+        {project.missing && !project.remoteUrl ? <span className="chip chip-gone">Missing</span> : null}
       </div>
     </article>
   );
@@ -93,6 +102,7 @@ function SortableCard({
   checked,
   selectMode,
   onOpen,
+  onOpenPage,
   onToggle,
 }: {
   project: Project;
@@ -100,6 +110,7 @@ function SortableCard({
   checked: boolean;
   selectMode: boolean;
   onOpen: (project: Project) => void;
+  onOpenPage: (project: Project) => void;
   onToggle: (project: Project) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -110,6 +121,7 @@ function SortableCard({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const clickTimer = useRef<number | null>(null);
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-start gap-1">
@@ -121,15 +133,29 @@ function SortableCard({
           onChange={() => onToggle(project)}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
-          aria-label={`Seleccionar ${project.name}`}
+          aria-label={`Select ${project.name}`}
         />
       ) : null}
       <div
         className="min-w-0 flex-1 touch-none"
+        title="Click for the quick pane. Double-click to open the project page."
         {...attributes}
         {...listeners}
         onClick={() => {
-          if (!isDragging) onOpen(project);
+          if (isDragging) return;
+          if (clickTimer.current) window.clearTimeout(clickTimer.current);
+          clickTimer.current = window.setTimeout(() => {
+            clickTimer.current = null;
+            onOpen(project);
+          }, 220);
+        }}
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          if (clickTimer.current) {
+            window.clearTimeout(clickTimer.current);
+            clickTimer.current = null;
+          }
+          onOpenPage(project);
         }}
       >
         <CardFace project={project} active={selected} checked={checked} dragging={isDragging} />
@@ -145,6 +171,7 @@ function ColumnLane({
   checkedIds,
   selectMode,
   onOpen,
+  onOpenPage,
   onToggle,
   onRename,
   onDelete,
@@ -155,6 +182,7 @@ function ColumnLane({
   checkedIds: Set<string>;
   selectMode: boolean;
   onOpen: (project: Project) => void;
+  onOpenPage: (project: Project) => void;
   onToggle: (project: Project) => void;
   onRename: (column: Column, title: string) => void;
   onDelete: (column: Column) => void;
@@ -165,24 +193,27 @@ function ColumnLane({
   });
   const [title, setTitle] = useState(column.title);
 
-  useEffect(() => {
-    setTitle(column.title);
-  }, [column.title]);
-
   return (
     <section className="paper-strip flex w-[19rem] shrink-0 flex-col rounded-lg p-3">
       <header className="column-tape mb-3 flex items-center gap-2 rounded px-3 py-2">
         <input
-          aria-label={`Columna ${column.title}`}
-          className="w-full bg-transparent font-[family-name:var(--font-serif)] text-lg font-semibold outline-none"
+          aria-label={`Rename column ${column.title}`}
+          title="Rename column"
+          className="w-full rounded-sm border border-transparent bg-transparent px-1 font-[family-name:var(--font-serif)] text-lg font-semibold outline-none hover:border-[var(--rule)] focus:border-[var(--ink)]"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           onBlur={() => title.trim() && title !== column.title && onRename(column, title.trim())}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              (event.target as HTMLInputElement).blur();
+            }
+          }}
         />
         <span className="rounded-full bg-[var(--ink)] px-2 py-0.5 text-[11px] font-bold text-[var(--paper)]">
           {projects.length}
         </span>
-        <button className="text-sm text-[var(--clay)]" onClick={() => onDelete(column)} type="button" aria-label="Eliminar columna">
+        <button className="text-sm text-[var(--clay)]" onClick={() => onDelete(column)} type="button" aria-label="Delete column">
           ×
         </button>
       </header>
@@ -199,12 +230,13 @@ function ColumnLane({
               checked={checkedIds.has(project.id)}
               selectMode={selectMode}
               onOpen={onOpen}
+              onOpenPage={onOpenPage}
               onToggle={onToggle}
             />
           ))}
         </SortableContext>
         {projects.length === 0 ? (
-          <p className="m-auto px-3 py-8 text-center text-sm text-[var(--ink-soft)]">Suelta aquí un proyecto</p>
+          <p className="m-auto px-3 py-8 text-center text-sm text-[var(--ink-soft)]">Drop a project here</p>
         ) : null}
       </div>
     </section>
@@ -212,6 +244,7 @@ function ColumnLane({
 }
 
 export function StudioBoard() {
+  const router = useRouter();
   const [columns, setColumns] = useState<Column[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [query, setQuery] = useState("");
@@ -223,16 +256,17 @@ export function StudioBoard() {
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
-  const [manualPath, setManualPath] = useState("");
-  const [manualName, setManualName] = useState("");
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [settings, setSettings] = useState<PublicSettings | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [bulkTrashOpen, setBulkTrashOpen] = useState(false);
   const [bulkTrashing, setBulkTrashing] = useState(false);
   const [presence, setPresence] = useState<"all" | "disk" | "git">("all");
-  const [manualUrl, setManualUrl] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const dragging = useRef(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -247,8 +281,12 @@ export function StudioBoard() {
   function applyBoard(data: BoardResponse) {
     setColumns([...data.columns].sort((a, b) => a.order - b.order));
     setProjects(data.projects);
-    if (data.settings?.trashPath) setTrashPath(data.settings.trashPath);
-    if (data.settings?.cloneRoot) setCloneRoot(data.settings.cloneRoot);
+    if (data.settings) {
+      setSettings(data.settings);
+      if (data.settings.trashPath) setTrashPath(data.settings.trashPath);
+      if (data.settings.cloneRoot) setCloneRoot(data.settings.cloneRoot);
+      if (!data.settings.setupComplete) setSetupOpen(true);
+    }
     setSelected((current) => {
       if (!current) return current;
       return data.projects.find((project) => project.id === current.id) || current;
@@ -267,13 +305,24 @@ export function StudioBoard() {
           if (!cancelled) applyBoard(scanned);
         }
       } catch (error) {
-        if (!cancelled) flash(error instanceof Error ? error.message : "No se pudo cargar el tablero");
+        if (!cancelled) flash(error instanceof Error ? error.message : "Could not load the board");
       }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuOpen]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -318,11 +367,11 @@ export function StudioBoard() {
       setShowTrash(true);
       flash(
         result.errors?.length
-          ? `Movidos ${result.moved.length}. Fallos: ${result.errors.join(" · ")}`
-          : `Movidos ${result.moved.length} a la papelera`,
+          ? `Moved ${result.moved.length}. Failures: ${result.errors.join(" · ")}`
+          : `Moved ${result.moved.length} to trash`,
       );
     } catch (error) {
-      flash(error instanceof Error ? error.message : "No se pudo mover a la papelera");
+      flash(error instanceof Error ? error.message : "Could not move to trash");
     } finally {
       setBulkTrashing(false);
     }
@@ -333,16 +382,16 @@ export function StudioBoard() {
     try {
       const data = await api<BoardResponse & { added: number; missing: number }>("/api/scan", { method: "POST" });
       applyBoard(data);
-      flash(`Escaneo: +${data.added} nuevos, ${data.missing} perdidos`);
+      flash(`Scan: +${data.added} new, ${data.missing} missing`);
     } catch (error) {
-      flash(error instanceof Error ? error.message : "El escaneo falló");
+      flash(error instanceof Error ? error.message : "Scan failed");
     } finally {
       setBusy(false);
     }
   }
 
   async function addColumn() {
-    const title = window.prompt("Nombre de la columna");
+    const title = window.prompt("Column name");
     if (!title?.trim()) return;
     const data = await api<{ columns: Column[] }>("/api/columns", {
       method: "POST",
@@ -360,7 +409,7 @@ export function StudioBoard() {
   }
 
   async function deleteColumn(column: Column) {
-    if (!window.confirm(`¿Eliminar la columna “${column.title}”? Los proyectos se mueven a otra.`)) return;
+    if (!window.confirm(`Delete the “${column.title}” column? Projects move to another column.`)) return;
     const data = await api<{ columns: Column[]; projects: Project[] }>("/api/columns", {
       method: "DELETE",
       body: JSON.stringify({ id: column.id }),
@@ -369,35 +418,16 @@ export function StudioBoard() {
     setProjects(data.projects);
   }
 
-  async function addManual() {
-    try {
-      if (manualUrl.trim()) {
-        const data = await api<{ project: Project }>("/api/catalog", {
-          method: "POST",
-          body: JSON.stringify({ url: manualUrl, name: manualName }),
-        });
-        setProjects((current) => {
-          if (current.some((project) => project.id === data.project.id)) {
-            return current.map((project) => (project.id === data.project.id ? data.project : project));
-          }
-          return [...current, data.project];
-        });
-        setSelected(data.project);
-        flash("Añadido al tablero desde Git. Aún no hay carpeta local.");
-      } else {
-        const data = await api<{ project: Project }>("/api/projects", {
-          method: "POST",
-          body: JSON.stringify({ path: manualPath, name: manualName }),
-        });
-        setProjects((current) => [...current, data.project]);
+  function addCreated(project: Project, message: string) {
+    setProjects((current) => {
+      if (current.some((item) => item.id === project.id)) {
+        return current.map((item) => (item.id === project.id ? project : item));
       }
-      setManualOpen(false);
-      setManualPath("");
-      setManualName("");
-      setManualUrl("");
-    } catch (error) {
-      flash(error instanceof Error ? error.message : "No se pudo añadir");
-    }
+      return [...current, project];
+    });
+    setManualOpen(false);
+    setSelected(project);
+    flash(message);
   }
 
   async function importGithub() {
@@ -406,9 +436,9 @@ export function StudioBoard() {
       const data = await api<BoardResponse & { added: number; total: number }>("/api/github/import", { method: "POST" });
       applyBoard(data);
       setPresence("git");
-      flash(`GitHub: ${data.added} nuevos en el tablero de ${data.total} repos`);
+      flash(`GitHub: ${data.added} new on the board from ${data.total} repos`);
     } catch (error) {
-      flash(error instanceof Error ? error.message : "No se pudo leer GitHub");
+      flash(error instanceof Error ? error.message : "Could not read GitHub");
     } finally {
       setBusy(false);
     }
@@ -424,11 +454,11 @@ export function StudioBoard() {
       const count = data.count ?? data.projects.length;
       flash(
         data.created
-          ? `Repo ${data.repo} creado · ${count} proyectos`
-          : `Sincronizado con ${data.repo} · ${count} proyectos`,
+          ? `Created ${data.repo} · ${count} projects`
+          : `Synced with ${data.repo} · ${count} projects`,
       );
     } catch (error) {
-      flash(error instanceof Error ? error.message : "No se pudo sincronizar");
+      flash(error instanceof Error ? error.message : "Could not sync");
     } finally {
       setBusy(false);
     }
@@ -442,6 +472,11 @@ export function StudioBoard() {
   function openProject(project: Project) {
     if (dragging.current) return;
     setSelected(project);
+  }
+
+  function openProjectPage(project: Project) {
+    if (dragging.current) return;
+    router.push(`/projects/${encodeURIComponent(project.id)}`);
   }
 
   function onDragStart(event: DragStartEvent) {
@@ -462,7 +497,7 @@ export function StudioBoard() {
       });
       replaceProject(data.project);
     } catch (error) {
-      flash(error instanceof Error ? error.message : "No se pudo mover");
+      flash(error instanceof Error ? error.message : "Could not move");
     }
   }
 
@@ -492,12 +527,12 @@ export function StudioBoard() {
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="studio-header z-20 flex shrink-0 flex-wrap items-center gap-2 px-4 py-3">
         <div className="mr-2">
-          <p className="text-[0.68rem] font-bold uppercase tracking-[0.22em] text-[var(--ink-soft)]">Estudio</p>
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.22em] text-[var(--ink-soft)]">Studio</p>
           <h1 className="font-[family-name:var(--font-serif)] text-2xl leading-none">ProjectHub</h1>
         </div>
         <input
           className="min-w-40 flex-1 rounded-full border border-[var(--rule)] bg-[var(--card)] px-4 py-2"
-          placeholder="Buscar nombre, ruta o GitHub…"
+          placeholder="Search name, path, or GitHub…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -509,66 +544,125 @@ export function StudioBoard() {
               className={`rounded-full px-3 py-1 ${presence === value ? "bg-[var(--ink)] text-[var(--paper)]" : ""}`}
               onClick={() => setPresence(value)}
             >
-              {value === "all" ? "Todos" : value === "disk" ? "En disco" : `Solo Git (${gitOnlyCount})`}
+              {value === "all" ? "All" : value === "disk" ? "On disk" : `Git only (${gitOnlyCount})`}
             </button>
           ))}
         </div>
-        <label className="text-sm text-[var(--ink-soft)]">
-          <input className="mr-1" type="checkbox" checked={showHidden} onChange={(event) => setShowHidden(event.target.checked)} />
-          Ocultos
-        </label>
-        <button className="rounded-full bg-[var(--ink)] px-4 py-2 text-[var(--paper)]" onClick={scan} disabled={busy}>
-          {busy ? "Escaneando…" : "Escanear"}
+        <button className="rounded-full bg-[var(--ink)] px-4 py-2 text-[var(--paper)]" onClick={() => setManualOpen(true)}>
+          Add
         </button>
-        <button className="rounded-full border border-[var(--ink)] px-3 py-2" onClick={() => setManualOpen(true)}>
-          Añadir
-        </button>
-        <button className="rounded-full border border-[var(--ink)] px-3 py-2" onClick={() => void syncBackend()} disabled={busy}>
-          {busy ? "…" : "Sincronizar"}
-        </button>
-        <button className="rounded-full border border-[var(--moss)] px-3 py-2" onClick={() => void importGithub()} disabled={busy}>
-          Traer GitHub
-        </button>
-        <button className="rounded-full border border-[var(--rule)] px-3 py-2" onClick={addColumn}>
-          + Columna
-        </button>
-        <button
-          className={`rounded-full border px-3 py-2 ${selectMode ? "border-[var(--clay)] bg-[var(--clay)] text-white" : "border-[var(--rule)]"}`}
-          onClick={() => {
-            setSelectMode((current) => {
-              if (current) setCheckedIds(new Set());
-              return !current;
-            });
-          }}
-          disabled={showTrash}
-        >
-          {selectMode ? "Salir de borrar varios" : "Borrar varios"}
-        </button>
-        <button
-          className={`rounded-full border px-3 py-2 ${showTrash ? "border-[var(--clay)] bg-[var(--clay)] text-white" : "border-[var(--rule)]"}`}
-          onClick={() => {
-            setShowTrash((current) => !current);
-            setSelected(null);
-            setSelectMode(false);
-            setCheckedIds(new Set());
-          }}
-        >
-          Papelera ({projects.filter((project) => project.trashed).length})
-        </button>
-        <Link className="px-1 text-sm underline decoration-[var(--amber)] underline-offset-4" href="/catalogo">
-          Catálogo
-        </Link>
-        <Link className="px-1 text-sm underline decoration-[var(--amber)] underline-offset-4" href="/settings">
-          Ajustes
-        </Link>
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            className={`rounded-full border px-3 py-2 ${menuOpen || showTrash || selectMode ? "border-[var(--ink)] bg-[var(--card)]" : "border-[var(--rule)]"}`}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={() => setMenuOpen((current) => !current)}
+          >
+            More
+          </button>
+          {menuOpen ? (
+            <div
+              role="menu"
+              className="absolute right-0 z-30 mt-2 w-56 rounded-lg border border-[var(--rule)] bg-[var(--card)] p-1 shadow-lg"
+            >
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)] disabled:opacity-40"
+                disabled={busy}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void scan();
+                }}
+              >
+                {busy ? "Scanning…" : "Scan folders"}
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)] disabled:opacity-40"
+                disabled={busy}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void syncBackend();
+                }}
+              >
+                Sync backend
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)] disabled:opacity-40"
+                disabled={busy}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void importGithub();
+                }}
+              >
+                Import GitHub
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)]"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void addColumn();
+                }}
+              >
+                Add column
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)] disabled:opacity-40"
+                disabled={showTrash}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setSelectMode((current) => {
+                    if (current) setCheckedIds(new Set());
+                    return !current;
+                  });
+                }}
+              >
+                {selectMode ? "Exit bulk delete" : "Bulk delete"}
+              </button>
+              <button
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--paper-deep)]"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShowTrash((current) => !current);
+                  setSelectMode(false);
+                  setCheckedIds(new Set());
+                }}
+              >
+                {showTrash ? "Back to wall" : `Trash (${projects.filter((project) => project.trashed).length})`}
+              </button>
+              <label className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]">
+                <input type="checkbox" checked={showHidden} onChange={(event) => setShowHidden(event.target.checked)} />
+                Show hidden
+              </label>
+              <div className="my-1 border-t border-[var(--rule)]" />
+              <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/catalog" onClick={() => setMenuOpen(false)}>
+                Catalog
+              </Link>
+              <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/templates" onClick={() => setMenuOpen(false)}>
+                Doc templates
+              </Link>
+              <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/settings" onClick={() => setMenuOpen(false)}>
+                Settings
+              </Link>
+              <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/setup" onClick={() => setMenuOpen(false)}>
+                Setup
+              </Link>
+            </div>
+          ) : null}
+        </div>
       </header>
 
       {selectMode && !showTrash ? (
         <div className="mx-4 mt-2 flex flex-wrap items-center gap-3 rounded-md bg-[var(--ink)] px-4 py-2 text-sm text-[var(--paper)]">
           <span>
             {checkedProjects.length === 0
-              ? "Marca los proyectos a mover"
-              : `${checkedProjects.length} seleccionados`}
+              ? "Check the projects to move"
+              : `${checkedProjects.length} selected`}
           </span>
           <button
             type="button"
@@ -576,7 +670,7 @@ export function StudioBoard() {
             disabled={checkedProjects.length === 0}
             onClick={() => setBulkTrashOpen(true)}
           >
-            Mover a papelera…
+            Move to trash…
           </button>
           <button
             type="button"
@@ -586,7 +680,7 @@ export function StudioBoard() {
               setCheckedIds(new Set());
             }}
           >
-            Cancelar
+            Cancel
           </button>
         </div>
       ) : null}
@@ -599,11 +693,14 @@ export function StudioBoard() {
         <main className="min-w-0 flex-1 overflow-x-auto px-4 py-4">
           {showTrash ? (
             <div className="mx-auto flex max-w-xl flex-col gap-2">
+              <button className="mb-1 text-left text-sm text-[var(--amber)]" type="button" onClick={() => setShowTrash(false)}>
+                ← Studio wall
+              </button>
               <p className="mb-2 text-sm text-[var(--ink-soft)]">
-                Carpetas movidas a <span className="font-mono text-xs">{trashPath || "(sin configurar)"}</span>
+                Folders moved to <span className="font-mono text-xs">{trashPath || "(not set)"}</span>
               </p>
               {visible.length === 0 ? (
-                <p className="paper-strip rounded-lg p-6 text-sm text-[var(--ink-soft)]">La papelera está vacía.</p>
+                <p className="paper-strip rounded-lg p-6 text-sm text-[var(--ink-soft)]">Trash is empty.</p>
               ) : (
                 visible.map((project) => (
                   <button key={project.id} className="text-left" type="button" onClick={() => openProject(project)}>
@@ -626,7 +723,7 @@ export function StudioBoard() {
             <div className="flex h-full items-stretch gap-3">
               {columns.map((column) => (
                 <ColumnLane
-                  key={column.id}
+                  key={`${column.id}:${column.title}`}
                   column={column}
                   selectedId={selected?.id ?? null}
                   checkedIds={checkedIds}
@@ -635,6 +732,7 @@ export function StudioBoard() {
                     .filter((project) => project.columnId === column.id)
                     .sort((a, b) => a.order - b.order)}
                   onOpen={openProject}
+                  onOpenPage={openProjectPage}
                   onToggle={toggleCheck}
                   onRename={renameColumn}
                   onDelete={deleteColumn}
@@ -647,30 +745,14 @@ export function StudioBoard() {
           </DndContext>
           )}
         </main>
-
-        <ProjectPane
+        <ProjectQuickPane
           project={selected}
           columns={columns}
-          trashPath={trashPath}
           cloneRoot={cloneRoot}
           onChange={replaceProject}
           onMove={(projectId, columnId) => void moveProject(projectId, columnId)}
           onToast={flash}
-          onTrashed={(moved, errors) => {
-            for (const project of moved) replaceProject(project);
-            setCheckedIds((current) => {
-              const next = new Set(current);
-              for (const project of moved) next.delete(project.id);
-              return next;
-            });
-            setShowTrash(true);
-            setSelected(moved[0] || null);
-            flash(
-              errors.length
-                ? `Movidos ${moved.length}. Fallos: ${errors.join(" · ")}`
-                : `Movido a la papelera: ${moved[0]?.path || ""}`,
-            );
-          }}
+          onClose={() => setSelected(null)}
         />
       </div>
 
@@ -685,53 +767,27 @@ export function StudioBoard() {
       ) : null}
 
       {manualOpen ? (
-        <div className="sheet-scrim fixed inset-0 z-40 flex items-center justify-center" onClick={() => setManualOpen(false)}>
-          <form
-            className="w-[min(32rem,92vw)] rounded-lg bg-[var(--paper)] p-5 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void addManual();
-            }}
-          >
-            <h2 className="font-[family-name:var(--font-serif)] text-2xl">Añadir</h2>
-            <p className="mt-1 text-sm text-[var(--ink-soft)]">Una carpeta de este Mac, o una URL de Git si aún no está en local.</p>
-            <label className="mt-4 block text-sm">
-              Ruta local
-              <input
-                className="mt-1 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2"
-                value={manualPath}
-                onChange={(event) => setManualPath(event.target.value)}
-                placeholder="/Users/…/mi-proyecto"
-              />
-            </label>
-            <label className="mt-3 block text-sm">
-              URL de Git
-              <input
-                className="mt-1 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2 font-mono text-sm"
-                value={manualUrl}
-                onChange={(event) => setManualUrl(event.target.value)}
-                placeholder="https://github.com/usuario/repo"
-              />
-            </label>
-            <label className="mt-3 block text-sm">
-              Nombre (opcional)
-              <input
-                className="mt-1 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2"
-                value={manualName}
-                onChange={(event) => setManualName(event.target.value)}
-              />
-            </label>
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setManualOpen(false)}>
-                Cancelar
-              </button>
-              <button className="rounded-md bg-[var(--ink)] px-4 py-2 text-[var(--paper)]" type="submit" disabled={!manualPath.trim() && !manualUrl.trim()}>
-                Añadir
-              </button>
-            </div>
-          </form>
-        </div>
+        <CreateProjectDialog
+          key={cloneRoot}
+          cloneRoot={cloneRoot}
+          onClose={() => setManualOpen(false)}
+          onCreated={addCreated}
+          onToast={flash}
+        />
+      ) : null}
+
+      {setupOpen && settings ? (
+        <SetupWizard
+          settings={settings}
+          onDone={(next) => {
+            setSettings(next);
+            setTrashPath(next.trashPath);
+            setCloneRoot(next.cloneRoot);
+            setSetupOpen(false);
+            flash("Setup saved");
+          }}
+          onSkip={() => setSetupOpen(false)}
+        />
       ) : null}
     </div>
   );

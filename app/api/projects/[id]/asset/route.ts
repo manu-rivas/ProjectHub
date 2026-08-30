@@ -26,20 +26,20 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const { id } = await context.params;
   const relative = new URL(request.url).searchParams.get("path") || "";
   if (!relative || relative.includes("\0")) {
-    return NextResponse.json({ ok: false, error: "Ruta inválida" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Invalid path" }, { status: 400 });
   }
 
   const store = readStore();
   const project = store.projects.find((item) => item.id === id);
-  if (!project) return NextResponse.json({ ok: false, error: "Proyecto no encontrado" }, { status: 404 });
+  if (!project) return NextResponse.json({ ok: false, error: "Project not found" }, { status: 404 });
 
   const target = resolve(project.path, relative);
   if (!insideRoot(project.path, target) || !existsSync(target)) {
-    return NextResponse.json({ ok: false, error: "Archivo no encontrado" }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "File not found" }, { status: 404 });
   }
 
   const type = TYPES[extname(target).toLowerCase()];
-  if (!type) return NextResponse.json({ ok: false, error: "Tipo no permitido" }, { status: 415 });
+  if (!type) return NextResponse.json({ ok: false, error: "File type not allowed" }, { status: 415 });
 
   const body = new Uint8Array(readFileSync(target));
   return new NextResponse(body, {

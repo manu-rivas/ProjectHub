@@ -3,7 +3,7 @@ import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { expandHome, isInside } from "./paths";
 import { readStore, touchProject, writeStore } from "./store";
-import { TRASH_CONFIRM_PHRASE, type Project, type Store } from "./types";
+import { TRASH_CONFIRM_PHRASE, TRASH_CONFIRM_PHRASES, type Project, type Store } from "./types";
 
 export { TRASH_CONFIRM_PHRASE };
 
@@ -104,9 +104,9 @@ export function reconcileTrashState(store: Store): boolean {
 }
 
 function trashOne(store: Store, project: Project): Project[] {
-  if (project.trashed) throw new TrashError(`${project.name} ya está en la papelera`);
+  if (project.trashed) throw new TrashError(`${project.name} is already in the trash`);
   const trashPath = store.settings.trashPath?.trim();
-  if (!trashPath) throw new TrashError("Configura la ruta de la papelera en Ajustes");
+  if (!trashPath) throw new TrashError("Set a trash folder in Settings");
 
   const now = new Date().toISOString();
   const source = resolve(project.path);
@@ -125,7 +125,7 @@ function trashOne(store: Store, project: Project): Project[] {
   }
 
   if (isInside(livePath, trashRoot)) {
-    throw new TrashError("La papelera no puede estar dentro del proyecto que vas a mover");
+    throw new TrashError("The trash folder cannot live inside the project you are moving");
   }
 
   if (isInside(trashRoot, livePath)) {
@@ -143,7 +143,7 @@ function trashOne(store: Store, project: Project): Project[] {
 
   const cwd = resolve(process.cwd());
   if (cwd === resolve(livePath) || isInside(livePath, cwd)) {
-    throw new TrashError(`No se puede mover ${project.name}: ProjectHub lo está usando`);
+    throw new TrashError(`Cannot move ${project.name}: ProjectHub is using that folder`);
   }
 
   mkdirSync(trashRoot, { recursive: true });
@@ -152,7 +152,7 @@ function trashOne(store: Store, project: Project): Project[] {
     .digest("hex")
     .slice(0, 8);
   const destination = join(trashRoot, `${basename(livePath)}-${hash}`);
-  if (existsSync(destination)) throw new TrashError("Choque de nombre en la papelera; inténtalo de nuevo");
+  if (existsSync(destination)) throw new TrashError("Name collision in trash; try again");
 
   moveDirectory(livePath, destination);
   const extras = markNestedMoved(store, project.id, livePath, destination, now);
@@ -173,25 +173,25 @@ export function moveProjectsToTrash(input: {
   confirmCount: number;
   confirmName?: string;
 }): { moved: Project[]; errors: string[] } {
-  if (input.confirmPhrase.trim() !== TRASH_CONFIRM_PHRASE) {
-    throw new TrashError(`Escribe exactamente ${TRASH_CONFIRM_PHRASE} para confirmar`);
+  if (!TRASH_CONFIRM_PHRASES.includes(input.confirmPhrase.trim() as (typeof TRASH_CONFIRM_PHRASES)[number])) {
+    throw new TrashError(`Type ${TRASH_CONFIRM_PHRASE} exactly to confirm`);
   }
   const ids = [...new Set(input.ids.filter(Boolean))];
-  if (ids.length === 0) throw new TrashError("No hay proyectos que mover");
+  if (ids.length === 0) throw new TrashError("No projects to move");
   if (input.confirmCount !== ids.length) {
-    throw new TrashError(`Confirma el número de proyectos (${ids.length})`);
+    throw new TrashError(`Confirm the number of projects (${ids.length})`);
   }
   if (ids.length === 1 && input.confirmName !== undefined) {
     const store = readStore();
     const project = store.projects.find((item) => item.id === ids[0]);
-    if (!project) throw new TrashError("Proyecto no encontrado");
+    if (!project) throw new TrashError("Project not found");
     if (input.confirmName.trim() !== project.name) {
-      throw new TrashError("El nombre no coincide con el del proyecto");
+      throw new TrashError("The name does not match the project");
     }
   }
 
   const store = readStore();
-  if (!store.settings.trashPath?.trim()) throw new TrashError("Configura la ruta de la papelera en Ajustes");
+  if (!store.settings.trashPath?.trim()) throw new TrashError("Set a trash folder in Settings");
 
   const moved: Project[] = [];
   const errors: string[] = [];
@@ -199,7 +199,7 @@ export function moveProjectsToTrash(input: {
   for (const id of ids) {
     const index = store.projects.findIndex((project) => project.id === id);
     if (index === -1) {
-      errors.push(`No encontrado: ${id}`);
+      errors.push(`Not found: ${id}`);
       continue;
     }
     try {
@@ -213,7 +213,7 @@ export function moveProjectsToTrash(input: {
       writeStore(store);
       moved.push(...batch);
     } catch (error) {
-      errors.push(error instanceof Error ? error.message : "Error al mover");
+      errors.push(error instanceof Error ? error.message : "Could not move");
     }
   }
 

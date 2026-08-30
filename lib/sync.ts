@@ -35,7 +35,7 @@ function git(cwd: string, args: string[], timeout = 120000): { ok: boolean; stdo
 
 function gitOrThrow(cwd: string, args: string[], timeout?: number): string {
   const result = git(cwd, args, timeout);
-  if (!result.ok) throw new GitError(result.stderr || result.stdout || `git ${args[0]} falló`);
+  if (!result.ok) throw new GitError(result.stderr || result.stdout || `git ${args[0]} failed`);
   return result.stdout;
 }
 
@@ -71,10 +71,12 @@ function refreshDisk(project: Project): Project {
     missing: !onDisk,
     trashed: onDisk ? Boolean(project.trashed) : false,
     trashedAt: onDisk ? project.trashedAt : null,
-    ideas:
-      project.ideas && Array.isArray(project.ideas.columns) && Array.isArray(project.ideas.cards)
-        ? project.ideas
-        : defaultIdeaBoard(),
+        ideas:
+          project.ideas && Array.isArray(project.ideas.columns) && Array.isArray(project.ideas.cards)
+            ? project.ideas
+            : defaultIdeaBoard(),
+        actions: Array.isArray(project.actions) ? project.actions : [],
+        templateId: project.templateId ?? null,
   };
 }
 
@@ -94,6 +96,10 @@ function mergeProjects(local: Project[], incoming: Project[]): Project[] {
       ideas: remote.ideas?.cards ? remote.ideas : current?.ideas || defaultIdeaBoard(),
       notes: remote.notes || current?.notes || "",
       color: remote.color || current?.color || null,
+      icon: remote.icon || current?.icon || null,
+      iconExt: remote.iconExt || current?.iconExt || null,
+      actions: remote.actions?.length ? remote.actions : current?.actions || [],
+      templateId: remote.templateId || current?.templateId || null,
     };
     byKey.set(key, refreshDisk(merged));
   }
@@ -137,7 +143,7 @@ function readSnapshot(dir: string): SyncSnapshot | null {
       catalog: Array.isArray(parsed.catalog) ? parsed.catalog : [],
     };
   } catch {
-    throw new GitError("board.json del backend no es JSON válido");
+    throw new GitError("Backend board.json is not valid JSON");
   }
 }
 
@@ -176,12 +182,12 @@ function commitBoard(dir: string): void {
       "user.email=projecthub@local",
       "commit",
       "-m",
-      `Sincronizar tablero ${new Date().toISOString().slice(0, 16)}`,
+      `Sync board ${new Date().toISOString().slice(0, 16)}`,
     ],
     30000,
   );
   if (!commit.ok && !/nothing to commit/i.test(`${commit.stderr} ${commit.stdout}`)) {
-    throw new GitError(commit.stderr || commit.stdout || "No se pudo hacer commit del backend");
+    throw new GitError(commit.stderr || commit.stdout || "Could not commit the backend");
   }
 }
 
@@ -198,12 +204,12 @@ function createRemoteRepo(dir: string): void {
       "origin",
       "--push",
       "--description",
-      "Backend JSON de ProjectHub",
+      "ProjectHub JSON backend",
     ],
     180000,
   );
   if (!created.ok) {
-    throw new GitError(created.stderr || `No se pudo crear ${BACKEND_REPO_NAME} con gh`);
+    throw new GitError(created.stderr || `Could not create ${BACKEND_REPO_NAME} with gh`);
   }
 }
 
@@ -215,7 +221,7 @@ function ensureRemoteClone(slug: string): string {
     git(SYNC_DIR, ["remote", "set-url", "origin", origin]);
     const pull = git(SYNC_DIR, ["pull", "--ff-only"], 120000);
     if (!pull.ok && !/no tracking|couldn't find remote|unborn|unknown revision|no such ref|couldn't find remote ref/i.test(`${pull.stderr} ${pull.stdout}`)) {
-      throw new GitError(pull.stderr || pull.stdout || "No se pudo hacer pull del backend");
+      throw new GitError(pull.stderr || pull.stdout || "Could not pull the backend");
     }
     return SYNC_DIR;
   }
@@ -229,7 +235,7 @@ function ensureRemoteClone(slug: string): string {
   }
 
   const cloned = gh(["repo", "clone", slug, SYNC_DIR], 180000);
-  if (!cloned.ok) throw new GitError(cloned.stderr || `No se pudo clonar ${slug} con gh`);
+  if (!cloned.ok) throw new GitError(cloned.stderr || `Could not clone ${slug} with gh`);
   return SYNC_DIR;
 }
 
@@ -238,7 +244,7 @@ function pushIfNeeded(dir: string): boolean {
   if (status) commitBoard(dir);
   const pushed = git(dir, ["push", "-u", "origin", "HEAD"], 120000);
   if (!pushed.ok) {
-    throw new GitError(pushed.stderr || "No se pudo subir el backend. Prueba `gh auth login`.");
+    throw new GitError(pushed.stderr || "Could not push the backend. Try `gh auth login`.");
   }
   return true;
 }

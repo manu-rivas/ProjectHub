@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withProjectIcon } from "@/lib/icon";
 import { publicSettings, readStore, writeStore } from "@/lib/store";
 import { reconcileTrashState } from "@/lib/trash";
 
@@ -12,6 +13,6 @@ export async function GET() {
     ok: true,
     settings: publicSettings(store.settings),
     columns: [...store.columns].sort((a, b) => a.order - b.order),
-    projects: store.projects,
+    projects: store.projects.map(withProjectIcon),
   });
 }

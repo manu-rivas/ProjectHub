@@ -18,7 +18,7 @@ export function ensureRemoteOnBoard(
   options?: { name?: string; notes?: string; source?: CatalogSource },
 ): { project: Project; entry: CatalogEntry; created: boolean } {
   const normalized = normalizeRemote(url);
-  if (!normalized) throw new GitError("URL de Git no válida");
+  if (!normalized) throw new GitError("Invalid Git URL");
   const entry = addCatalogUrl(store, normalized, options?.name, options?.source || "manual");
   const existing = findProjectByRemote(store, normalized);
   if (existing) {
@@ -40,6 +40,8 @@ export function ensureRemoteOnBoard(
     hidden: false,
     tags: [],
     color: null,
+    icon: null,
+    iconExt: null,
     missing: true,
     order: Date.now(),
     updatedAt: now,
@@ -53,6 +55,8 @@ export function ensureRemoteOnBoard(
     trashed: false,
     trashedAt: null,
     ideas: defaultIdeaBoard(),
+    actions: [],
+    templateId: null,
   };
   store.projects.push(project);
   entry.boardId = project.id;
@@ -65,7 +69,7 @@ export function ensureRemoteOnBoard(
 
 export function addCatalogUrl(store: Store, url: string, name?: string, source: CatalogSource = "manual"): CatalogEntry {
   const normalized = normalizeRemote(url);
-  if (!normalized) throw new GitError("URL de Git no válida");
+  if (!normalized) throw new GitError("Invalid Git URL");
   const key = remoteKey(normalized);
   const existing = store.catalog.find((entry) => entry.remoteUrl && remoteKey(entry.remoteUrl) === key);
   if (existing) return existing;
@@ -94,9 +98,9 @@ export function cloneCatalogEntry(input: {
 }): { entry: CatalogEntry; project: Project } {
   const store = readStore();
   const parent = input.parent.trim();
-  if (!parent) throw new GitError("Elige la carpeta destino");
+  if (!parent) throw new GitError("Choose a destination folder");
   if (store.settings.trashPath && isInside(store.settings.trashPath, parent)) {
-    throw new GitError("No clones dentro de la papelera");
+    throw new GitError("Do not clone into the trash folder");
   }
 
   let entry =
@@ -107,7 +111,7 @@ export function cloneCatalogEntry(input: {
       : undefined);
 
   const url = entry?.remoteUrl || input.url || "";
-  if (!normalizeRemote(url)) throw new GitError("Este proyecto no tiene remoto de Git para clonar");
+  if (!normalizeRemote(url)) throw new GitError("This project has no Git remote to clone");
 
   if (!entry) {
     entry = addCatalogUrl(store, url, undefined, "manual");
@@ -145,6 +149,8 @@ export function cloneCatalogEntry(input: {
         hidden: false,
         tags: [],
         color: null,
+        icon: null,
+        iconExt: null,
         missing: false,
         order: Date.now(),
         updatedAt: now,
@@ -158,6 +164,8 @@ export function cloneCatalogEntry(input: {
         trashed: false,
         trashedAt: null,
         ideas: defaultIdeaBoard(),
+        actions: [],
+        templateId: null,
       };
       store.projects.push(project);
     }

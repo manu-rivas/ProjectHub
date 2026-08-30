@@ -16,14 +16,14 @@ export function LocalDeleteConfirm({ project, busy, onCancel, onConfirm }: Props
   return (
     <div className="sheet-scrim fixed inset-0 z-50 flex items-center justify-center" onClick={onCancel}>
       <div className="w-[min(32rem,92vw)] rounded-lg bg-[var(--paper)] p-5 shadow-xl" onClick={(event) => event.stopPropagation()}>
-        <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Borrar en local</p>
-        <h2 className="mt-1 font-[family-name:var(--font-serif)] text-2xl">Quitar la carpeta del disco</h2>
+        <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Delete locally</p>
+        <h2 className="mt-1 font-[family-name:var(--font-serif)] text-2xl">Remove the folder from disk</h2>
         <p className="mt-3 text-sm leading-relaxed">
-          Esto borra <span className="font-mono text-xs">{project.path}</span>. El proyecto <strong>sigue en el tablero</strong> con su
-          columna, notas e ideas. El remoto de Git no se toca. <strong>No va a la papelera</strong>.
+          This deletes <span className="font-mono text-xs">{project.path}</span>. The project <strong>stays on the board</strong> with
+          its column, notes, and ideas. The Git remote is untouched. <strong>This is not the trash flow</strong>.
         </p>
         <label className="mt-4 block text-sm">
-          Escribe el nombre para confirmar: <span className="font-mono">{project.name}</span>
+          Type the name to confirm: <span className="font-mono">{project.name}</span>
           <input
             className="mt-1 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2 font-mono"
             value={name}
@@ -32,7 +32,7 @@ export function LocalDeleteConfirm({ project, busy, onCancel, onConfirm }: Props
         </label>
         <div className="mt-4 flex justify-end gap-2">
           <button className="rounded-md border border-[var(--rule)] px-3 py-2" type="button" onClick={onCancel}>
-            Cancelar
+            Cancel
           </button>
           <button
             className="rounded-md bg-[var(--ink)] px-4 py-2 text-[var(--paper)] disabled:opacity-40"
@@ -40,7 +40,7 @@ export function LocalDeleteConfirm({ project, busy, onCancel, onConfirm }: Props
             disabled={busy || name.trim() !== project.name}
             onClick={() => onConfirm(name)}
           >
-            {busy ? "Borrando…" : "Borrar carpeta local"}
+            {busy ? "Deleting…" : "Delete local folder"}
           </button>
         </div>
       </div>

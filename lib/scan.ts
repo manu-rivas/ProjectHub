@@ -1,14 +1,14 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { listProjectDocs, readProjectDoc } from "./docs";
 import { projectIdFromPath } from "./id";
 import { expandHome, isInside } from "./paths";
 import { remoteKey } from "./git";
 import { reconcileTrashState } from "./trash";
 import { ensureColumn, defaultIdeaBoard, readStore, writeStore } from "./store";
-import type { Project, Store } from "./types";
+import { DOC_FILES, type Project, type Store } from "./types";
 
-const DOC_FILES = ["README.md", "PRODUCT.md", "AGENTS.md"];
 const PROJECT_MARKERS = ["package.json", "Cargo.toml", "pyproject.toml", "go.mod", "composer.json"];
 
 function isIgnored(name: string, ignore: string[]): boolean {
@@ -46,7 +46,7 @@ function gitRemote(dir: string): string | null {
 function inspect(dir: string): Pick<Project, "isGit" | "remoteUrl" | "docs" | "mtime" | "publishedHint"> {
   const isGit = existsSync(join(dir, ".git"));
   const remoteUrl = isGit ? gitRemote(dir) : null;
-  const docs = DOC_FILES.filter((file) => existsSync(join(dir, file)));
+  const docs = listProjectDocs(dir).filter((file) => (DOC_FILES as readonly string[]).includes(file) || file.endsWith(".md"));
   let mtime: string | null = null;
   try {
     mtime = statSync(dir).mtime.toISOString();
@@ -135,6 +135,8 @@ export function scanIntoStore(store: Store): { added: number; updated: number; m
       hidden: false,
       tags: [],
       color: null,
+      icon: null,
+      iconExt: null,
       missing: false,
       order: Date.now(),
       updatedAt: now,
@@ -143,6 +145,8 @@ export function scanIntoStore(store: Store): { added: number; updated: number; m
       trashed: false,
       trashedAt: null,
       ideas: defaultIdeaBoard(),
+      actions: [],
+      templateId: null,
       ...snapshot,
     };
     store.projects.push(project);
@@ -174,12 +178,7 @@ export function scanIntoStore(store: Store): { added: number; updated: number; m
 }
 
 export function readDocExcerpt(projectPath: string, fileName: string, limit = 4000): string {
-  if (!DOC_FILES.includes(fileName)) return "";
-  try {
-    return readFileSync(join(projectPath, fileName), "utf8").slice(0, limit);
-  } catch {
-    return "";
-  }
+  return readProjectDoc(projectPath, fileName, limit);
 }
 
 export function runScan(): { store: Store; added: number; updated: number; missing: number } {

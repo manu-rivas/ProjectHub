@@ -37,34 +37,68 @@ export function repoFolderName(url: string, fallback = "repo"): string {
 
 export function cloneUrl(url: string): string {
   const normalized = normalizeRemote(url);
-  if (!normalized) throw new GitError("URL de Git no válida");
+  if (!normalized) throw new GitError("Invalid Git URL");
   return `${normalized}.git`;
 }
 
-export function pickFolder(prompt = "Elige la carpeta destino"): string {
+export function pickFolder(prompt = "Choose the destination folder"): string {
   if (process.platform !== "darwin") {
-    throw new GitError("En este sistema escribe la ruta a mano");
+    throw new GitError("On this system, type the folder path by hand");
   }
   const result = spawnSync(
     "osascript",
     ["-e", `POSIX path of (choose folder with prompt ${JSON.stringify(prompt)})`],
     { encoding: "utf8", timeout: 300000 },
   );
-  if (result.status !== 0) throw new GitError("No se eligió carpeta");
+  if (result.status !== 0) throw new GitError("No folder was chosen");
   return resolve(result.stdout.trim().replace(/\/$/, ""));
+}
+
+function isGithubHost(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "github.com" || host.endsWith(".github.com");
+  } catch {
+    return false;
+  }
 }
 
 export function cloneIntoParent(remoteUrl: string, parent: string, folderName?: string): string {
   const parentPath = resolve(expandHome(parent));
   const name = folderName || repoFolderName(remoteUrl);
   if (!name || name === "." || name === ".." || name.includes("/") || name.includes("\\")) {
-    throw new GitError("Nombre de carpeta no válido");
+    throw new GitError("Invalid folder name");
   }
   mkdirSync(parentPath, { recursive: true });
   const destination = join(parentPath, name);
   if (existsSync(destination)) {
-    throw new GitError(`Ya existe ${destination}`);
+    throw new GitError(`${destination} already exists`);
   }
+
+  const normalized = normalizeRemote(remoteUrl);
+  if (!normalized) throw new GitError("Invalid Git URL");
+
+  if (isGithubHost(normalized)) {
+    const auth = spawnSync("gh", ["auth", "status"], {
+      encoding: "utf8",
+      timeout: 8000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (auth.status !== 0) {
+      throw new GitError("GitHub CLI is required to download projects. Install gh and run `gh auth login`.");
+    }
+    const cloned = spawnSync("gh", ["repo", "clone", normalized, destination], {
+      encoding: "utf8",
+      timeout: 180000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (cloned.status !== 0) {
+      const detail = (cloned.stderr || cloned.stdout || "").trim().split("\n").slice(-4).join(" ");
+      throw new GitError(detail || "Could not clone with GitHub CLI");
+    }
+    return destination;
+  }
+
   const result = spawnSync("git", ["clone", cloneUrl(remoteUrl), destination], {
     encoding: "utf8",
     timeout: 180000,
@@ -72,7 +106,7 @@ export function cloneIntoParent(remoteUrl: string, parent: string, folderName?: 
   });
   if (result.status !== 0) {
     const detail = (result.stderr || result.stdout || "").trim().split("\n").slice(-4).join(" ");
-    throw new GitError(detail || "git clone falló");
+    throw new GitError(detail || "git clone failed");
   }
   return destination;
 }
@@ -101,7 +135,7 @@ export async function listGithubRepos(): Promise<GithubRepo[]> {
       /* fall through */
     }
   }
-  throw new GitError(gh.stderr?.trim() || "No pude leer GitHub. Entra con `gh auth login`.");
+  throw new GitError(gh.stderr?.trim() || "Could not read GitHub. Run `gh auth login`.");
 }
 
 export function suggestedCloneParent(cloneRoot: string, currentPath?: string): string {

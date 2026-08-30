@@ -30,7 +30,7 @@ export async function POST() {
       settings: publicSettings(store.settings),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo leer GitHub";
+    const message = error instanceof Error ? error.message : "Could not read GitHub";
     const status = error instanceof GitError ? 400 : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }

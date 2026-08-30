@@ -1,11 +1,22 @@
 {
   "name": "projecthub",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
+  "private": false,
+  "license": "MIT",
+  "description": "A local studio board for the projects you start, park, and forget.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manu-rivas/ProjectHub.git"
+  },
+  "bugs": {
+    "url": "https://github.com/manu-rivas/ProjectHub/issues"
+  },
+  "homepage": "https://github.com/manu-rivas/ProjectHub#readme",
   "scripts": {
-    "dev": "next dev --hostname 127.0.0.1 --port 3456",
+    "dev": "node scripts/launch.mjs",
+    "dev:plain": "next dev --hostname 127.0.0.1 --port 3456",
     "build": "next build",
-    "start": "next start --hostname 127.0.0.1 --port 3456",
+    "start": "node scripts/launch.mjs start",
     "lint": "eslint"
   },
   "dependencies": {
