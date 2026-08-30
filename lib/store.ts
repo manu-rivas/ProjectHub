@@ -1,8 +1,9 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { newId, projectIdFromRemote } from "./id";
 import { remoteKey } from "./git";
+import { readSqliteStore, sqliteExists, writeSqliteStore } from "./sqlite";
 import type { CatalogEntry, Column, IdeasBoard, Project, Settings, Store } from "./types";
 
 export const STORE_PATH = join(homedir(), ".projecthub", "store.json");
@@ -16,9 +17,11 @@ export function defaultSettings(): Settings {
     scanRoots: [join(home, "Developer"), join(home, "Developer", "zz_cursor")],
     depth: 2,
     ignore: DEFAULT_IGNORE,
-    trashPath: join(home, ".projecthub", "papelera"),
+    trashPath: join(home, ".projecthub", "trash"),
     cloneRoot: join(home, "Developer"),
     githubToken: "",
+    storage: "json",
+    setupComplete: false,
   };
 }
 
@@ -26,8 +29,8 @@ export function defaultIdeaBoard(): IdeasBoard {
   return {
     columns: [
       { id: "idea-inbox", title: "Ideas", order: 0 },
-      { id: "idea-doing", title: "Cocinando", order: 1 },
-      { id: "idea-done", title: "Hecho", order: 2 },
+      { id: "idea-doing", title: "Cooking", order: 1 },
+      { id: "idea-done", title: "Done", order: 2 },
     ],
     cards: [],
   };
@@ -36,15 +39,50 @@ export function defaultIdeaBoard(): IdeasBoard {
 export function defaultColumns(): Column[] {
   return [
     { id: "idea", title: "Idea", order: 0 },
-    { id: "en-curso", title: "En curso", order: 1 },
-    { id: "pausado", title: "Pausado", order: 2 },
-    { id: "publicado", title: "Publicado", order: 3 },
-    { id: "archivado", title: "Archivado", order: 4 },
+    { id: "en-curso", title: "In progress", order: 1 },
+    { id: "pausado", title: "Paused", order: 2 },
+    { id: "publicado", title: "Published", order: 3 },
+    { id: "archivado", title: "Archived", order: 4 },
   ];
 }
 
 function emptyStore(): Store {
   return { version: 1, settings: defaultSettings(), columns: defaultColumns(), projects: [], catalog: [] };
+}
+
+function normalizeProject(project: Project): Project {
+  return {
+    ...project,
+    trashed: Boolean(project.trashed),
+    trashedAt: project.trashedAt ?? null,
+    color: project.color ?? null,
+    actions: Array.isArray(project.actions) ? project.actions : [],
+    templateId: project.templateId ?? null,
+    ideas:
+      project.ideas && Array.isArray(project.ideas.columns) && Array.isArray(project.ideas.cards)
+        ? project.ideas
+        : defaultIdeaBoard(),
+  };
+}
+
+function normalizeStore(parsed: Partial<Store>): Store {
+  const base = emptyStore();
+  const settings = { ...base.settings, ...parsed.settings, githubToken: "" };
+  if (settings.storage !== "sqlite") settings.storage = "json";
+  const hadData =
+    (Array.isArray(parsed.projects) && parsed.projects.length > 0) ||
+    (Array.isArray(parsed.catalog) && parsed.catalog.length > 0) ||
+    Boolean(parsed.settings && Object.keys(parsed.settings).length > 0);
+  if (parsed.settings?.setupComplete === undefined && hadData) {
+    settings.setupComplete = true;
+  }
+  return {
+    version: 1,
+    settings,
+    columns: Array.isArray(parsed.columns) && parsed.columns.length > 0 ? parsed.columns : base.columns,
+    projects: Array.isArray(parsed.projects) ? parsed.projects.map(normalizeProject) : [],
+    catalog: Array.isArray(parsed.catalog) ? parsed.catalog : [],
+  };
 }
 
 function catalogKey(entry: Pick<CatalogEntry, "id" | "remoteUrl">): string {
@@ -104,38 +142,43 @@ export function publicSettings(settings: Settings) {
     trashPath: settings.trashPath,
     cloneRoot: settings.cloneRoot,
     githubTokenSet: false,
+    storage: settings.storage,
+    setupComplete: Boolean(settings.setupComplete),
   };
 }
 
-export function readStore(): Store {
+function readJsonStore(): Store | null {
+  if (!existsSync(STORE_PATH)) return null;
   try {
     const raw = readFileSync(STORE_PATH, "utf8");
-    const parsed = JSON.parse(raw) as Partial<Store>;
-    const base = emptyStore();
-    const store: Store = {
-      version: 1,
-      settings: { ...base.settings, ...parsed.settings },
-      columns: Array.isArray(parsed.columns) && parsed.columns.length > 0 ? parsed.columns : base.columns,
-      projects: Array.isArray(parsed.projects)
-        ? parsed.projects.map((project) => ({
-            ...project,
-            trashed: Boolean(project.trashed),
-            trashedAt: project.trashedAt ?? null,
-            color: project.color ?? null,
-            ideas:
-              project.ideas && Array.isArray(project.ideas.columns) && Array.isArray(project.ideas.cards)
-                ? project.ideas
-                : defaultIdeaBoard(),
-          }))
-        : [],
-      catalog: Array.isArray(parsed.catalog) ? parsed.catalog : [],
-    };
-    return store;
+    return normalizeStore(JSON.parse(raw) as Partial<Store>);
   } catch {
-    const store = emptyStore();
-    writeStore(store);
-    return store;
+    return null;
   }
+}
+
+export function readStore(): Store {
+  const json = readJsonStore();
+  const preferSqlite = json?.settings.storage === "sqlite" || (!json && sqliteExists());
+  if (preferSqlite && sqliteExists()) {
+    const fromDb = readSqliteStore();
+    if (fromDb) {
+      const store = normalizeStore(fromDb);
+      if (json) {
+        store.settings = {
+          ...store.settings,
+          ...json.settings,
+          storage: "sqlite",
+          githubToken: "",
+        };
+      }
+      return store;
+    }
+  }
+  if (json) return json;
+  const store = emptyStore();
+  writeStore(store);
+  return store;
 }
 
 function writeCatalogExport(store: Store): void {
@@ -157,14 +200,32 @@ function writeCatalogExport(store: Store): void {
   renameSync(tmp, CATALOG_PATH);
 }
 
-export function writeStore(store: Store): void {
-  store.settings.githubToken = "";
-  syncCatalog(store);
+function writeJsonStore(store: Store): void {
   mkdirSync(dirname(STORE_PATH), { recursive: true });
   const tmp = `${STORE_PATH}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(store, null, 2));
   renameSync(tmp, STORE_PATH);
+}
+
+export function writeStore(store: Store): void {
+  store.settings.githubToken = "";
+  syncCatalog(store);
+  writeJsonStore(store);
   writeCatalogExport(store);
+  if (store.settings.storage === "sqlite") {
+    writeSqliteStore(store);
+  }
+}
+
+export function initializeSqlite(store = readStore()): Store {
+  store.settings.storage = "sqlite";
+  writeSqliteStore(store);
+  writeStore(store);
+  return readStore();
+}
+
+export function storeExists(): boolean {
+  return existsSync(STORE_PATH) || sqliteExists();
 }
 
 export function touchProject(project: Project, patch: Partial<Project>): Project {
@@ -180,7 +241,7 @@ export function ensureColumn(store: Store, columnId: string): string {
 export function addColumn(store: Store, title: string): Column {
   const column: Column = {
     id: newId("col"),
-    title: title.trim() || "Nueva columna",
+    title: title.trim() || "New column",
     order: store.columns.reduce((max, column) => Math.max(max, column.order), -1) + 1,
   };
   store.columns.push(column);

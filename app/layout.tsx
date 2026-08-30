@@ -16,12 +16,12 @@ const serif = Source_Serif_4({
 
 export const metadata: Metadata = {
   title: "ProjectHub",
-  description: "Tablero local de proyectos para Cursor y Codex",
+  description: "A local studio board for the projects you start, park, and forget.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${sans.variable} ${serif.variable} h-full`}>
+    <html lang="en" className={`${sans.variable} ${serif.variable} h-full`}>
       <body className="min-h-full antialiased">{children}</body>
     </html>
   );

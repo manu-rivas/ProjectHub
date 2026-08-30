@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { expandHome } from "@/lib/paths";
+import { sqliteStatus } from "@/lib/sqlite";
 import { publicSettings, readStore, writeStore } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const store = readStore();
+  return NextResponse.json({
+    ok: true,
+    settings: publicSettings(store.settings),
+    database: sqliteStatus(),
+  });
+}
 
 export async function PATCH(request: Request) {
   const body = (await request.json()) as {
@@ -31,5 +41,5 @@ export async function PATCH(request: Request) {
   }
   store.settings.githubToken = "";
   writeStore(store);
-  return NextResponse.json({ ok: true, settings: publicSettings(store.settings) });
+  return NextResponse.json({ ok: true, settings: publicSettings(store.settings), database: sqliteStatus() });
 }

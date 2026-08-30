@@ -14,7 +14,7 @@ export async function GET() {
       repo: resolveSyncRepo(),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "gh no está autenticado";
+    const message = error instanceof Error ? error.message : "gh is not authenticated";
     return NextResponse.json({ ok: false, error: message, repo: "" }, { status: 400 });
   }
 }
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       projects: store.projects,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo sincronizar";
+    const message = error instanceof Error ? error.message : "Could not sync";
     const status = error instanceof GitError ? 400 : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }

@@ -6,7 +6,7 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { ...init, headers });
   const data = (await response.json()) as T & { ok?: boolean; error?: string };
   if (!response.ok || data.ok === false) {
-    throw new Error(data.error || "No se pudo completar la acción");
+    throw new Error(data.error || "The request failed");
   }
   return data;
 }

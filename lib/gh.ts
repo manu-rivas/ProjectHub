@@ -10,7 +10,7 @@ export function requireGhAuth(): void {
     stdio: ["ignore", "pipe", "pipe"],
   });
   if (result.status !== 0) {
-    throw new GitError("Entra con `gh auth login`. ProjectHub usa gh y no guarda tokens.");
+    throw new GitError("Run `gh auth login`. ProjectHub uses gh and does not store tokens.");
   }
 }
 
@@ -23,7 +23,7 @@ export function ghLogin(): string {
   });
   const login = (result.stdout || "").trim();
   if (result.status !== 0 || !login) {
-    throw new GitError(result.stderr?.trim() || "No pude saber la cuenta de GitHub. Prueba `gh auth login`.");
+    throw new GitError(result.stderr?.trim() || "Could not read the GitHub account. Try `gh auth login`.");
   }
   return login;
 }

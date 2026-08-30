@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/lib/client";
-import type { Column, DocPreview, Project, PublishedState } from "@/lib/types";
+import type { Column, DocPreview, Project, ProjectAction, PublishedState } from "@/lib/types";
 import { CARD_COLORS } from "@/lib/types";
 import { isGitOnly } from "@/lib/project";
 import { useEffect, useMemo, useState } from "react";
@@ -22,21 +22,57 @@ type Props = {
   cloneRoot: string;
 };
 
-type Tab = "ideas" | "notas" | "README.md" | "PRODUCT.md" | "AGENTS.md";
+type Tab = "ideas" | "notes" | "docs" | "actions" | string;
+
+type TemplateInfo = { id: string; name: string; description: string };
 
 function publishedLabel(project: Project): string {
-  if (project.published === "yes") return "Publicado";
-  if (project.published === "no") return "No publicado";
-  return project.publishedHint ? "Parece publicado" : "Sin marcar";
+  if (project.published === "yes") return "Published";
+  if (project.published === "no") return "Not published";
+  return project.publishedHint ? "Looks published" : "Unmarked";
 }
 
-export function ProjectPane({ project, columns, onChange, onMove, onToast, onTrashed, trashPath, cloneRoot }: Props) {
-  const [notes, setNotes] = useState(project?.notes ?? "");
-  const [name, setName] = useState(project?.name ?? "");
+export function ProjectPane(props: Props) {
+  if (!props.project) {
+    return (
+      <aside className="doc-pane flex w-[min(42vw,34rem)] shrink-0 flex-col">
+        <div className="flex h-full flex-col items-start justify-center px-8 text-[var(--ink-soft)]">
+          <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em]">Documentation</p>
+          <p className="mt-3 font-[family-name:var(--font-serif)] text-3xl text-[var(--ink)]">Pick a card</p>
+          <p className="mt-3 max-w-sm text-sm leading-relaxed">
+            Open a project to read or write its README, PRODUCT, and AGENTS files. Drag the card to another column to
+            change its status.
+          </p>
+        </div>
+      </aside>
+    );
+  }
+  return <ProjectPaneBody key={props.project.id} {...props} project={props.project} />;
+}
+
+function ProjectPaneBody({
+  project,
+  columns,
+  onChange,
+  onMove,
+  onToast,
+  onTrashed,
+  trashPath,
+  cloneRoot,
+}: Props & { project: Project }) {
+  const [notes, setNotes] = useState(project.notes);
+  const [name, setName] = useState(project.name);
   const [docs, setDocs] = useState<DocPreview[]>([]);
-  const [tab, setTab] = useState<Tab>("notas");
+  const [actions, setActions] = useState<ProjectAction[]>([]);
+  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
+  const [tab, setTab] = useState<Tab>("ideas");
   const [saving, setSaving] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [templateId, setTemplateId] = useState("web-app");
+  const [customLabel, setCustomLabel] = useState("");
+  const [customCommand, setCustomCommand] = useState("");
   const [trashOpen, setTrashOpen] = useState(false);
   const [trashing, setTrashing] = useState(false);
   const [cloneOpen, setCloneOpen] = useState(false);
@@ -44,48 +80,30 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
   const [localDeleting, setLocalDeleting] = useState(false);
 
   useEffect(() => {
-    setNotes(project?.notes ?? "");
-    setName(project?.name ?? "");
-    setTab("ideas");
-    setTrashOpen(false);
-    setCloneOpen(false);
-    setLocalDeleteOpen(false);
-    if (!project) {
-      setDocs([]);
-      return;
-    }
     let cancelled = false;
     fetch(`/api/projects/${project.id}`)
       .then((response) => response.json())
-      .then((data: { docs?: DocPreview[] }) => {
+      .then((data: { docs?: DocPreview[]; actions?: ProjectAction[] }) => {
         if (cancelled) return;
-        const next = data.docs || [];
-        setDocs(next);
-        const firstDoc = next.find((doc) => doc.exists);
-        if (!firstDoc) setTab("ideas");
+        setDocs(data.docs || []);
+        setActions(data.actions || []);
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [project?.id]);
+  }, [project.id]);
+
+  useEffect(() => {
+    fetch("/api/templates")
+      .then((response) => response.json())
+      .then((data: { templates?: TemplateInfo[] }) => {
+        if (data.templates?.length) setTemplates(data.templates);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const activeDoc = useMemo(() => docs.find((doc) => doc.name === tab), [docs, tab]);
-
-  if (!project) {
-    return (
-      <aside className="doc-pane flex w-[min(42vw,34rem)] shrink-0 flex-col">
-        <div className="flex h-full flex-col items-start justify-center px-8 text-[var(--ink-soft)]">
-          <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em]">Documentación</p>
-          <p className="mt-3 font-[family-name:var(--font-serif)] text-3xl text-[var(--ink)]">Elige una ficha</p>
-          <p className="mt-3 max-w-sm text-sm leading-relaxed">
-            Pulsa un proyecto para leer su README, PRODUCT o AGENTS aquí mismo. Arrastra la tarjeta a otra columna para
-            cambiar el estado.
-          </p>
-        </div>
-      </aside>
-    );
-  }
 
   const current = project;
 
@@ -98,13 +116,13 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
       });
       onChange(result.project);
     } catch (error) {
-      onToast(error instanceof Error ? error.message : "No se pudo guardar");
+      onToast(error instanceof Error ? error.message : "Could not save");
     } finally {
       setSaving(false);
     }
   }
 
-  async function open(target: "cursor" | "codex" | "finder") {
+  async function open(target: "cursor" | "codex" | "finder" | "vscode" | "terminal") {
     setOpening(target);
     try {
       await api("/api/open", {
@@ -112,7 +130,7 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
         body: JSON.stringify({ id: current.id, target }),
       });
     } catch (error) {
-      onToast(error instanceof Error ? error.message : "No se pudo abrir");
+      onToast(error instanceof Error ? error.message : "Could not open");
     } finally {
       setOpening(null);
     }
@@ -133,7 +151,7 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
       setTrashOpen(false);
       onTrashed(result.moved, result.errors || []);
     } catch (error) {
-      onToast(error instanceof Error ? error.message : "No se pudo mover a la papelera");
+      onToast(error instanceof Error ? error.message : "Could not move to trash");
     } finally {
       setTrashing(false);
     }
@@ -148,28 +166,96 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
       });
       setLocalDeleteOpen(false);
       onChange(result.project);
-      onToast("Carpeta local borrada. El proyecto sigue en el tablero.");
+      onToast("Local folder deleted. The project stays on the board.");
     } catch (error) {
-      onToast(error instanceof Error ? error.message : "No se pudo borrar en local");
+      onToast(error instanceof Error ? error.message : "Could not delete the local folder");
     } finally {
       setLocalDeleting(false);
     }
   }
 
+  async function applyDocs(body: Record<string, unknown>) {
+    const result = await api<{ project: Project; docs: DocPreview[]; written: string[] }>(
+      `/api/projects/${current.id}/docs`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+    onChange(result.project);
+    setDocs(result.docs);
+    return result;
+  }
+
+  async function saveDoc() {
+    try {
+      await applyDocs({ name: tab, content: draft });
+      setEditing(false);
+      onToast(`Saved ${tab}`);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Could not save the file");
+    }
+  }
+
+  async function createFromTemplate() {
+    try {
+      const result = await applyDocs({ templateId, overwrite: false });
+      onToast(result.written.length ? `Wrote ${result.written.join(", ")}` : "Those files already exist");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Could not create docs");
+    }
+  }
+
+  async function runAction(action: ProjectAction) {
+    setOpening(action.id);
+    try {
+      await api(`/api/projects/${current.id}/actions`, {
+        method: "POST",
+        body: JSON.stringify({ action: "run", actionId: action.id, command: action.command }),
+      });
+      onToast(`Started: ${action.label}`);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Could not run the action");
+    } finally {
+      setOpening(null);
+    }
+  }
+
+  async function addCustomAction() {
+    try {
+      const result = await api<{ project: Project; action: ProjectAction }>(`/api/projects/${current.id}/actions`, {
+        method: "POST",
+        body: JSON.stringify({ action: "add", label: customLabel, command: customCommand }),
+      });
+      onChange(result.project);
+      setActions((currentActions) => {
+        const next = currentActions.filter((item) => item.id !== result.action.id);
+        return [...next, result.action];
+      });
+      setCustomLabel("");
+      setCustomCommand("");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Could not add the action");
+    }
+  }
+
   const onDisk = Boolean(project.path) && !project.missing && !project.trashed;
+  const docTabs = docs.length
+    ? docs.map((doc) => ({ id: doc.name, label: doc.name.replace(/\.md$/i, ""), badge: doc.exists }))
+    : [
+        { id: "README.md", label: "README", badge: false },
+        { id: "PRODUCT.md", label: "PRODUCT", badge: false },
+        { id: "AGENTS.md", label: "AGENTS", badge: false },
+      ];
 
   const tabs: { id: Tab; label: string; badge?: boolean }[] = [
     { id: "ideas", label: "Ideas", badge: (project.ideas?.cards.length || 0) > 0 },
-    { id: "notas", label: "Notas" },
-    { id: "README.md", label: "README", badge: Boolean(docs.find((doc) => doc.name === "README.md")?.exists) },
-    { id: "PRODUCT.md", label: "PRODUCT", badge: Boolean(docs.find((doc) => doc.name === "PRODUCT.md")?.exists) },
-    { id: "AGENTS.md", label: "AGENTS", badge: Boolean(docs.find((doc) => doc.name === "AGENTS.md")?.exists) },
+    { id: "notes", label: "Notes" },
+    { id: "actions", label: "Actions", badge: actions.length > 0 },
+    ...docTabs,
   ];
 
   return (
     <aside className="doc-pane flex w-[min(42vw,34rem)] shrink-0 flex-col">
       <header className="border-b border-[var(--rule)] px-5 py-4">
-        <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--ink-soft)]">En esta ventana</p>
+        <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--ink-soft)]">This window</p>
         <input
           className="mt-1 w-full bg-transparent font-[family-name:var(--font-serif)] text-2xl outline-none"
           value={name}
@@ -177,14 +263,14 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
           onBlur={() => name.trim() && name !== project.name && save({ name: name.trim() })}
         />
         <p className="mt-1 break-all font-mono text-[11px] text-[var(--ink-soft)]">
-          {project.path || project.remoteUrl || "Sin carpeta local"}
+          {project.path || project.remoteUrl || "No local folder"}
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-label="Color de la ficha">
+        <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-label="Card color">
           <button
             type="button"
             className={`h-6 w-6 rounded-full border-2 ${!project.color ? "scale-110 border-[var(--ink)] ring-2 ring-[var(--amber)] ring-offset-1" : "border-[var(--rule)]"}`}
             style={{ background: "var(--card)" }}
-            aria-label="Sin color"
+            aria-label="No color"
             aria-pressed={!project.color}
             onClick={() => save({ color: null })}
           />
@@ -202,7 +288,7 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <label className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">
-            Columna
+            Column
             <select
               className="ml-2 rounded-full border border-[var(--rule)] bg-[var(--card)] px-2 py-1 font-sans text-sm font-normal normal-case tracking-normal"
               value={project.columnId}
@@ -225,17 +311,17 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
               }`}
               onClick={() => save({ published: value })}
             >
-              {value === "unset" ? "Auto" : value === "yes" ? "Sí pub." : "No pub."}
+              {value === "unset" ? "Auto" : value === "yes" ? "Published" : "Local only"}
             </button>
           ))}
         </div>
         <p className="mt-2 text-xs text-[var(--ink-soft)]">
           {publishedLabel(project)}
-          {project.remoteUrl ? ` · ${project.remoteUrl}` : " · sin remoto"}
+          {project.remoteUrl ? ` · ${project.remoteUrl}` : " · no remote"}
         </p>
         {isGitOnly(project) ? (
           <p className="mt-2 rounded-md bg-[var(--paper-deep)] px-3 py-2 text-xs text-[var(--ink-soft)]">
-            No está en este Mac. El tablero lo recuerda; tráelo a local cuando quieras.
+            Not on this machine. The board remembers it; clone it when you want a local copy.
           </p>
         ) : null}
       </header>
@@ -247,7 +333,12 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
             className={`rounded-t-md px-3 py-2 text-sm ${
               tab === item.id ? "bg-[var(--card)] font-semibold" : "text-[var(--ink-soft)]"
             }`}
-            onClick={() => setTab(item.id)}
+            onClick={() => {
+              setTab(item.id);
+              setEditing(false);
+              const doc = docs.find((entry) => entry.name === item.id);
+              setDraft(doc?.excerpt || "");
+            }}
             type="button"
           >
             {item.label}
@@ -259,7 +350,7 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         {tab === "ideas" ? (
           <IdeaBoard project={project} onChange={onChange} onToast={onToast} />
-        ) : tab === "notas" ? (
+        ) : tab === "notes" ? (
           <div className="flex h-full min-h-64 flex-col">
             <div className="mb-2 flex justify-end">
               <button
@@ -267,22 +358,132 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
                 disabled={saving || notes === project.notes}
                 onClick={() => save({ notes })}
               >
-                {saving ? "Guardando…" : "Guardar notas"}
+                {saving ? "Saving…" : "Save notes"}
               </button>
             </div>
             <textarea
               className="notes min-h-64 w-full flex-1 resize-none rounded-md border border-[var(--rule)] bg-[var(--card)] p-3"
-              placeholder="Qué era esto, por dónde lo dejaste, enlaces, decisiones…"
+              placeholder="What this was, where you left it, links, decisions…"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
             />
           </div>
+        ) : tab === "actions" ? (
+          <div className="space-y-3">
+            <p className="text-sm text-[var(--ink-soft)]">
+              Start the project, open a tool, or add your own command. Commands run from the project folder.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {actions.length === 0 ? <p className="text-sm text-[var(--ink-soft)]">No scripts detected yet.</p> : null}
+              {actions.map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  className="rounded-md bg-[var(--ink)] px-3 py-2 text-sm text-[var(--paper)] disabled:opacity-40"
+                  disabled={!onDisk || opening === action.id}
+                  onClick={() => void runAction(action)}
+                >
+                  {opening === action.id ? "…" : action.label}
+                </button>
+              ))}
+            </div>
+            <form
+              className="rounded-md border border-[var(--rule)] p-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void addCustomAction();
+              }}
+            >
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">Custom action</p>
+              <input
+                className="mt-2 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2 text-sm"
+                placeholder="Label · Start API"
+                value={customLabel}
+                onChange={(event) => setCustomLabel(event.target.value)}
+              />
+              <input
+                className="mt-2 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2 font-mono text-sm"
+                placeholder="pnpm --filter api dev"
+                value={customCommand}
+                onChange={(event) => setCustomCommand(event.target.value)}
+              />
+              <button className="mt-2 rounded-md border border-[var(--ink)] px-3 py-1 text-sm" type="submit" disabled={!customCommand.trim()}>
+                Add action
+              </button>
+            </form>
+          </div>
         ) : activeDoc?.exists ? (
-          <MarkdownView markdown={activeDoc.excerpt || ""} projectId={project.id} />
+          <div>
+            <div className="mb-3 flex justify-end gap-3">
+              <button
+                className="text-sm text-[var(--amber)]"
+                type="button"
+                onClick={() => {
+                  setDraft(activeDoc.excerpt || "");
+                  setEditing((currentEdit) => !currentEdit);
+                }}
+              >
+                {editing ? "Preview" : "Edit"}
+              </button>
+              {editing ? (
+                <button className="text-sm text-[var(--moss)]" type="button" onClick={() => void saveDoc()}>
+                  Save file
+                </button>
+              ) : null}
+            </div>
+            {editing ? (
+              <textarea
+                className="notes min-h-80 w-full resize-y rounded-md border border-[var(--rule)] bg-[var(--card)] p-3 font-mono text-sm"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+              />
+            ) : (
+              <MarkdownView markdown={activeDoc.excerpt || ""} projectId={project.id} />
+            )}
+          </div>
         ) : (
-          <p className="text-sm text-[var(--ink-soft)]">
-            {tab} no está en la raíz de este proyecto. Si lo creas, pulsa la ficha otra vez para recargarlo.
-          </p>
+          <div className="space-y-3 text-sm">
+            <p className="text-[var(--ink-soft)]">
+              {tab} is not in the project root yet. Create it from a template, or write it here.
+            </p>
+            {onDisk ? (
+              <>
+                <label className="block">
+                  Template
+                  <select
+                    className="mt-1 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2"
+                    value={templateId}
+                    onChange={(event) => setTemplateId(event.target.value)}
+                  >
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button className="rounded-md bg-[var(--ink)] px-3 py-2 text-[var(--paper)]" type="button" onClick={() => void createFromTemplate()}>
+                  Create docs from template
+                </button>
+                <textarea
+                  className="notes min-h-48 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] p-3 font-mono text-sm"
+                  placeholder={`# ${project.name}`}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                />
+                <button
+                  className="rounded-md border border-[var(--ink)] px-3 py-2"
+                  type="button"
+                  disabled={!draft.trim()}
+                  onClick={() => void saveDoc()}
+                >
+                  Create {tab}
+                </button>
+              </>
+            ) : (
+              <p className="text-[var(--ink-soft)]">Clone or create a local folder first.</p>
+            )}
+          </div>
         )}
       </div>
 
@@ -290,31 +491,40 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
         <button className="rounded-md bg-[var(--ink)] py-2 text-[var(--paper)] disabled:opacity-40" onClick={() => open("cursor")} disabled={!onDisk}>
           {opening === "cursor" ? "…" : "Cursor"}
         </button>
+        <button className="rounded-md border border-[var(--ink)] py-2 disabled:opacity-40" onClick={() => open("vscode")} disabled={!onDisk}>
+          {opening === "vscode" ? "…" : "VS Code"}
+        </button>
         <button className="rounded-md bg-[var(--amber)] py-2 text-white disabled:opacity-40" onClick={() => open("codex")} disabled={!onDisk}>
           {opening === "codex" ? "…" : "Codex"}
         </button>
         <button className="rounded-md border border-[var(--ink)] py-2 disabled:opacity-40" onClick={() => open("finder")} disabled={!onDisk}>
-          {opening === "finder" ? "…" : "Finder"}
+          {opening === "finder" ? "…" : "Folder"}
+        </button>
+        <button className="rounded-md border border-[var(--ink)] py-2 disabled:opacity-40" onClick={() => open("terminal")} disabled={!onDisk}>
+          {opening === "terminal" ? "…" : "Terminal"}
+        </button>
+        <button className="rounded-md border border-[var(--moss)] py-2 disabled:opacity-40" onClick={() => setTab("actions")} disabled={!onDisk}>
+          Start
         </button>
         {project.remoteUrl ? (
           <button className="col-span-3 rounded-md border border-[var(--moss)] py-2 text-sm" type="button" onClick={() => setCloneOpen(true)}>
-            {onDisk ? "Clonar otra vez…" : "Traer a local…"}
+            {onDisk ? "Clone again…" : "Bring to this machine…"}
           </button>
         ) : null}
         {onDisk ? (
           <button className="col-span-3 rounded-md border border-[var(--ink)] py-2 text-sm" type="button" onClick={() => setLocalDeleteOpen(true)}>
-            Borrar carpeta local…
+            Delete local folder…
           </button>
         ) : null}
         {project.trashed ? (
-          <p className="col-span-3 text-center text-xs text-[var(--clay)]">En papelera · {project.path}</p>
+          <p className="col-span-3 text-center text-xs text-[var(--clay)]">In trash · {project.path}</p>
         ) : onDisk ? (
           <button className="col-span-3 text-sm text-[var(--clay)]" type="button" onClick={() => setTrashOpen(true)}>
-            Enviar a la papelera…
+            Move to trash…
           </button>
         ) : (
           <p className="col-span-3 text-center text-xs text-[var(--ink-soft)]">
-            Sin carpeta local{project.remoteUrl ? " · está en Git" : ""}. La papelera no aplica.
+            No local folder{project.remoteUrl ? " · it lives on Git" : ""}. Trash does not apply.
           </p>
         )}
       </footer>
@@ -337,7 +547,7 @@ export function ProjectPane({ project, columns, onChange, onMove, onToast, onTra
           onCloned={(next) => {
             setCloneOpen(false);
             onChange(next);
-            onToast(`Clonado en ${next.path}`);
+            onToast(`Cloned to ${next.path}`);
           }}
           onToast={onToast}
         />

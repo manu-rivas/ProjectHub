@@ -14,19 +14,19 @@ export class LocalDeleteError extends Error {
 export function deleteLocalCopy(id: string): Project {
   const store = readStore();
   const index = store.projects.findIndex((project) => project.id === id);
-  if (index === -1) throw new LocalDeleteError("Proyecto no encontrado");
+  if (index === -1) throw new LocalDeleteError("Project not found");
   const project = store.projects[index];
   if (project.trashed) {
-    throw new LocalDeleteError("Está en la papelera. Eso es otro flujo; sácalo de ahí o déjalo.");
+    throw new LocalDeleteError("This project is already in the trash. Use that flow instead.");
   }
   if (!project.path || project.missing || !existsSync(project.path)) {
-    throw new LocalDeleteError("No hay carpeta local que borrar. El proyecto ya está solo en Git.");
+    throw new LocalDeleteError("There is no local folder to delete. This project is Git-only.");
   }
 
   const source = resolve(project.path);
   const cwd = resolve(process.cwd());
   if (cwd === source || isInside(source, cwd)) {
-    throw new LocalDeleteError(`No se puede borrar ${project.name}: ProjectHub lo está usando`);
+    throw new LocalDeleteError(`Cannot delete ${project.name}: ProjectHub is using that folder`);
   }
 
   rmSync(source, { recursive: true, force: true });

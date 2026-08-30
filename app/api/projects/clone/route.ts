@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   try {
     const store = readStore();
     const parent = body.pickParent
-      ? pickFolder("Elige la carpeta donde clonar el proyecto")
+      ? pickFolder("Choose the folder where the project should be cloned")
       : body.parent?.trim() || suggestedCloneParent(store.settings.cloneRoot);
     const result = cloneCatalogEntry({
       catalogId: body.catalogId,
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ ok: true, ...result, parent });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo clonar";
+    const message = error instanceof Error ? error.message : "Could not clone";
     const status = error instanceof GitError ? 400 : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }

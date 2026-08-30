@@ -35,19 +35,19 @@ function IdeaNote({
   return (
     <div ref={setNodeRef} style={style} className="index-card rounded-md p-2">
       <div className="flex items-start gap-1">
-        <button className="cursor-grab pt-1 text-[var(--ink-soft)]" type="button" aria-label="Arrastrar idea" {...attributes} {...listeners}>
+        <button className="cursor-grab pt-1 text-[var(--ink-soft)]" type="button" aria-label="Drag idea" {...attributes} {...listeners}>
           ⋮⋮
         </button>
         <textarea
           className="min-h-[3.2rem] w-full resize-y bg-transparent text-sm outline-none"
           value={text}
-          placeholder="Una idea…"
+          placeholder="One idea…"
           onChange={(event) => setText(event.target.value)}
           onBlur={() => {
             if (text.trim() !== card.title) onChange({ ...card, title: text.trim() || card.title });
           }}
         />
-        <button className="text-xs text-[var(--clay)]" type="button" onClick={onRemove} aria-label="Borrar idea">
+        <button className="text-xs text-[var(--clay)]" type="button" onClick={onRemove} aria-label="Delete idea">
           ×
         </button>
       </div>
@@ -93,8 +93,8 @@ export function IdeaBoard({ project, onChange, onToast }: { project: Project; on
       ? project.ideas.columns
       : [
           { id: "idea-inbox", title: "Ideas", order: 0 },
-          { id: "idea-doing", title: "Cocinando", order: 1 },
-          { id: "idea-done", title: "Hecho", order: 2 },
+          { id: "idea-doing", title: "Cooking", order: 1 },
+          { id: "idea-done", title: "Done", order: 2 },
         ],
     cards: project.ideas?.cards ?? [],
   };
@@ -107,7 +107,7 @@ export function IdeaBoard({ project, onChange, onToast }: { project: Project; on
       });
       onChange(result.project);
     } catch (error) {
-      onToast(error instanceof Error ? error.message : "No se pudieron guardar las ideas");
+      onToast(error instanceof Error ? error.message : "Could not save ideas");
     }
   }
 
@@ -148,12 +148,12 @@ export function IdeaBoard({ project, onChange, onToast }: { project: Project; on
       >
         <input
           className="flex-1 rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2 text-sm"
-          placeholder="Nueva idea y Enter…"
+          placeholder="New idea, then Enter…"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
         <button className="rounded-md bg-[var(--ink)] px-3 py-2 text-sm text-[var(--paper)]" type="submit">
-          Añadir
+          Add
         </button>
       </form>
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>

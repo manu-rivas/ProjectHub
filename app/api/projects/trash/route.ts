@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo mover a la papelera";
+    const message = error instanceof Error ? error.message : "Could not move to trash";
     const status = error instanceof TrashError ? 400 : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }

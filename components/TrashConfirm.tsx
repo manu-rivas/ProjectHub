@@ -28,17 +28,17 @@ export function TrashConfirm({ projects, trashPath, busy, onCancel, onConfirm }:
         onClick={(event) => event.stopPropagation()}
       >
         <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--clay)]">
-          Papelera · paso {step} de 3
+          Trash · step {step} of 3
         </p>
         <h2 className="mt-1 font-[family-name:var(--font-serif)] text-2xl">
-          {bulk ? `Mover ${projects.length} proyectos` : "Mover a la papelera"}
+          {bulk ? `Move ${projects.length} projects` : "Move to trash"}
         </h2>
 
         {step === 1 ? (
           <div className="mt-4 space-y-3 text-sm leading-relaxed">
             <p>
-              Esto <strong>mueve las carpetas en el disco</strong>. Cada una se renombra con un hash en{" "}
-              <span className="font-mono text-xs">{trashPath || "(sin configurar)"}</span>.
+              This <strong>moves the folders on disk</strong>. Each one is renamed with a hash under{" "}
+              <span className="font-mono text-xs">{trashPath || "(not set)"}</span>.
             </p>
             <ul className="max-h-48 overflow-y-auto rounded-md bg-[var(--card)] p-2 font-mono text-xs">
               {projects.map((project) => (
@@ -50,10 +50,10 @@ export function TrashConfirm({ projects, trashPath, busy, onCancel, onConfirm }:
             </ul>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onCancel}>
-                Cancelar
+                Cancel
               </button>
               <button className="rounded-md bg-[var(--ink)] px-4 py-2 text-[var(--paper)]" type="button" onClick={() => setStep(2)}>
-                Entendido, seguir
+                I understand, continue
               </button>
             </div>
           </div>
@@ -68,11 +68,11 @@ export function TrashConfirm({ projects, trashPath, busy, onCancel, onConfirm }:
                 checked={understood}
                 onChange={(event) => setUnderstood(event.target.checked)}
               />
-              <span>Entiendo que las carpetas se mueven físicamente y desaparecen de su ruta actual.</span>
+              <span>I understand the folders move on disk and leave their current path.</span>
             </label>
             {bulk ? (
               <label className="block">
-                Escribe cuántos proyectos vas a mover: <strong>{projects.length}</strong>
+                Type how many projects you are moving: <strong>{projects.length}</strong>
                 <input
                   className="mt-1 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2 font-mono"
                   value={typedCount}
@@ -83,7 +83,7 @@ export function TrashConfirm({ projects, trashPath, busy, onCancel, onConfirm }:
               </label>
             ) : (
               <label className="block">
-                Escribe el nombre del proyecto: <strong>{projects[0]?.name}</strong>
+                Type the project name: <strong>{projects[0]?.name}</strong>
                 <input
                   className="mt-1 w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2 font-mono"
                   value={typedName}
@@ -94,7 +94,7 @@ export function TrashConfirm({ projects, trashPath, busy, onCancel, onConfirm }:
             )}
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setStep(1)}>
-                Atrás
+                Back
               </button>
               <button
                 className="rounded-md bg-[var(--ink)] px-4 py-2 text-[var(--paper)] disabled:opacity-40"
@@ -102,7 +102,7 @@ export function TrashConfirm({ projects, trashPath, busy, onCancel, onConfirm }:
                 disabled={!understood || !namesOk}
                 onClick={() => setStep(3)}
               >
-                Seguir
+                Continue
               </button>
             </div>
           </div>
@@ -111,7 +111,7 @@ export function TrashConfirm({ projects, trashPath, busy, onCancel, onConfirm }:
         {step === 3 ? (
           <div className="mt-4 space-y-3 text-sm">
             <p>
-              Última confirmación. Escribe <strong>{TRASH_CONFIRM_PHRASE}</strong> (tal cual, en mayúsculas).
+              Last confirmation. Type <strong>{TRASH_CONFIRM_PHRASE}</strong> exactly, in capitals.
             </p>
             <input
               className="w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-3 py-2 font-mono"
@@ -121,7 +121,7 @@ export function TrashConfirm({ projects, trashPath, busy, onCancel, onConfirm }:
             />
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setStep(2)} disabled={busy}>
-                Atrás
+                Back
               </button>
               <button
                 className="rounded-md bg-[var(--clay)] px-4 py-2 text-white disabled:opacity-40"
@@ -135,7 +135,7 @@ export function TrashConfirm({ projects, trashPath, busy, onCancel, onConfirm }:
                   })
                 }
               >
-                {busy ? "Moviendo…" : bulk ? `Mover ${projects.length} ahora` : "Mover ahora"}
+                {busy ? "Moving…" : bulk ? `Move ${projects.length} now` : "Move now"}
               </button>
             </div>
           </div>

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       catalog: store.catalog,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo guardar la URL";
+    const message = error instanceof Error ? error.message : "Could not save the URL";
     const status = error instanceof GitError ? 400 : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
