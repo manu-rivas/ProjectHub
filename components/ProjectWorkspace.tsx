@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/lib/client";
-import { isHexColor } from "@/lib/color";
+import { isHexColor, toHex6 } from "@/lib/color";
 import { isGitOnly } from "@/lib/project";
 import type { Column, DocPreview, Project, ProjectAction, PublishedState } from "@/lib/types";
 import { CARD_COLORS } from "@/lib/types";
@@ -53,6 +53,7 @@ export function ProjectWorkspace({
   const [tab, setTab] = useState<Tab>("ideas");
   const [docName, setDocName] = useState("README.md");
   const [emojiDraft, setEmojiDraft] = useState(project.icon || "");
+  const [hexDraft, setHexDraft] = useState(isHexColor(project.color) ? toHex6(project.color) : "");
   const [saving, setSaving] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -284,7 +285,19 @@ export function ProjectWorkspace({
           ← Studio wall
         </Link>
         <div className="mt-3 flex items-start gap-4">
-          <ProjectMark project={project} />
+          <label className="cursor-pointer" title="Add a picture">
+            <ProjectMark project={project} />
+            <input
+              className="sr-only"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadIcon(file);
+                event.target.value = "";
+              }}
+            />
+          </label>
           <div className="min-w-0 flex-1">
             <input
               className="w-full bg-transparent font-[family-name:var(--font-serif)] text-4xl outline-none"
@@ -311,19 +324,7 @@ export function ProjectWorkspace({
               }}
             />
           </label>
-          <label className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">
-            Picture
-            <input
-              className="mt-1 block text-xs font-normal normal-case tracking-normal"
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void uploadIcon(file);
-                event.target.value = "";
-              }}
-            />
-          </label>
+          <p className="pb-1 text-xs text-[var(--ink-soft)]">or click the mark to upload a picture</p>
           {project.icon || project.iconExt ? (
             <button className="text-sm text-[var(--clay)]" type="button" onClick={() => void clearIcon()}>
               Remove icon
@@ -337,7 +338,10 @@ export function ProjectWorkspace({
             style={{ background: "var(--card)" }}
             aria-label="No color"
             aria-pressed={!project.color}
-            onClick={() => save({ color: null })}
+            onClick={() => {
+              setHexDraft("");
+              save({ color: null });
+            }}
           />
           {CARD_COLORS.map((item) => (
             <button
@@ -347,7 +351,10 @@ export function ProjectWorkspace({
               style={{ background: item.swatch }}
               aria-label={item.label}
               aria-pressed={project.color === item.id}
-              onClick={() => save({ color: item.id })}
+              onClick={() => {
+                setHexDraft("");
+                save({ color: item.id });
+              }}
             />
           ))}
           <label className="ml-1 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">
@@ -357,9 +364,23 @@ export function ProjectWorkspace({
                 isHexColor(project.color) ? "border-[var(--ink)] ring-2 ring-[var(--amber)] ring-offset-1" : "border-[var(--rule)]"
               }`}
               type="color"
-              value={isHexColor(project.color) ? project.color : "#c4782a"}
+              value={isHexColor(project.color) ? toHex6(project.color) : hexDraft || "#c4782a"}
               aria-label="Custom color"
-              onChange={(event) => save({ color: event.target.value })}
+              onChange={(event) => {
+                setHexDraft(event.target.value);
+                save({ color: event.target.value });
+              }}
+            />
+            <input
+              className="w-24 rounded-md border border-[var(--rule)] bg-[var(--card)] px-2 py-1 font-mono text-xs font-normal normal-case tracking-normal"
+              value={hexDraft}
+              placeholder="#rrggbb"
+              spellCheck={false}
+              onChange={(event) => setHexDraft(event.target.value)}
+              onBlur={() => {
+                if (!hexDraft.trim()) return;
+                save({ color: hexDraft.trim() });
+              }}
             />
           </label>
         </div>

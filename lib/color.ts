@@ -10,12 +10,24 @@ export function isHexColor(value: string | null | undefined): value is string {
   return Boolean(value && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value));
 }
 
+export function toHex6(color: string): string {
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) return color.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(color)) {
+    const r = color[1];
+    const g = color[2];
+    const b = color[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return "#c4782a";
+}
+
 export function normalizeColor(value: unknown): string | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
+  let trimmed = value.trim();
   if (isPresetColor(trimmed)) return trimmed;
-  if (isHexColor(trimmed)) return trimmed.toLowerCase();
+  if (/^[0-9a-fA-F]{3}$/.test(trimmed) || /^[0-9a-fA-F]{6}$/.test(trimmed)) trimmed = `#${trimmed}`;
+  if (isHexColor(trimmed)) return toHex6(trimmed);
   return null;
 }
 
@@ -23,10 +35,16 @@ export function cardTintClass(color: string | null | undefined): string {
   return isPresetColor(color) ? `index-card-tint-${color}` : "";
 }
 
-export function cardTintStyle(color: string | null | undefined): { "--card-stripe": string; background: string } | undefined {
+export function cardTintStyle(color: string | null | undefined): {
+  "--card-stripe": string;
+  background: string;
+  borderColor: string;
+} | undefined {
   if (!isHexColor(color)) return undefined;
+  const hex = toHex6(color);
   return {
-    "--card-stripe": color,
-    background: `color-mix(in srgb, ${color} 20%, var(--card))`,
+    "--card-stripe": hex,
+    background: `color-mix(in srgb, ${hex} 22%, var(--card))`,
+    borderColor: `color-mix(in srgb, ${hex} 55%, var(--rule))`,
   };
 }

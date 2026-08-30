@@ -67,13 +67,15 @@ function CardFace({
       className={`index-card cursor-grab rounded-md p-3 active:cursor-grabbing ${tint} ${gitOnly ? "index-card-gitonly" : ""} ${active ? "index-card-active" : ""} ${checked ? "index-card-checked" : ""} ${dragging ? "opacity-40" : ""}`}
       style={cardTintStyle(project.color)}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-3">
         <ProjectMark project={project} size="sm" />
-        <h3 className="min-w-0 flex-1 font-[family-name:var(--font-serif)] text-lg leading-tight">{project.name}</h3>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-[family-name:var(--font-serif)] text-lg leading-tight">{project.name}</h3>
+          <p className="mt-1 truncate font-mono text-[11px] text-[var(--ink-soft)]">
+            {gitOnly ? project.remoteUrl || "Git only" : project.path || project.remoteUrl || "No local folder"}
+          </p>
+        </div>
       </div>
-      <p className="mt-1 truncate font-mono text-[11px] text-[var(--ink-soft)]">
-        {gitOnly ? project.remoteUrl || "Git only" : project.path || project.remoteUrl || "No local folder"}
-      </p>
       <div className="mt-2 flex flex-wrap gap-1">
         {project.trashed ? <span className="chip chip-gone">Trash</span> : null}
         {gitOnly ? (
@@ -84,7 +86,6 @@ function CardFace({
           <span className="chip chip-draft">Local</span>
         )}
         {project.remoteUrl && !gitOnly ? <span className="chip chip-live">Git</span> : null}
-        {project.docs.length > 0 ? <span className="chip chip-draft">{project.docs.length} docs</span> : null}
         {(project.ideas?.cards.length || 0) > 0 ? (
           <span className="chip chip-draft">{project.ideas.cards.length} ideas</span>
         ) : null}
