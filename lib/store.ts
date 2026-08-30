@@ -8,7 +8,20 @@ import { remoteKey } from "./git";
 import { supabaseConfigured } from "./secrets";
 import { readSqliteStore, sqliteExists, writeSqliteStore } from "./sqlite";
 import { writeSupabaseStore } from "./supabase";
-import type { CatalogEntry, Column, IdeaCard, IdeasBoard, Project, Settings, StorageBackend, Store } from "./types";
+import type {
+  CatalogEntry,
+  Column,
+  IdeaCard,
+  IdeasBoard,
+  IssueKind,
+  Project,
+  Settings,
+  Sprint,
+  SprintState,
+  StorageBackend,
+  Store,
+} from "./types";
+import { ISSUE_KINDS } from "./types";
 
 const STORAGE_BACKENDS: StorageBackend[] = ["json", "sqlite", "github", "supabase"];
 
@@ -40,6 +53,7 @@ export function defaultIdeaBoard(): IdeasBoard {
       { id: "idea-done", title: "Done", order: 2 },
     ],
     cards: [],
+    sprints: [],
   };
 }
 
@@ -57,18 +71,42 @@ function emptyStore(): Store {
   return { version: 1, settings: defaultSettings(), columns: defaultColumns(), projects: [], catalog: [] };
 }
 
+const ISSUE_KIND_IDS = new Set<string>(ISSUE_KINDS.map((item) => item.id));
+
+function normalizeKind(value: unknown): IssueKind {
+  return ISSUE_KIND_IDS.has(String(value)) ? (value as IssueKind) : "task";
+}
+
+function normalizeSprint(sprint: Sprint): Sprint {
+  const state: SprintState = sprint.state === "active" || sprint.state === "done" ? sprint.state : "planned";
+  return {
+    id: typeof sprint.id === "string" && sprint.id ? sprint.id : newId("spr"),
+    name: typeof sprint.name === "string" && sprint.name.trim() ? sprint.name.trim() : "Sprint",
+    goal: typeof sprint.goal === "string" ? sprint.goal : "",
+    state,
+  };
+}
+
 function normalizeCard(card: IdeaCard): IdeaCard {
+  const points = typeof card.points === "number" && Number.isFinite(card.points) ? Math.max(0, Math.min(99, Math.round(card.points))) : null;
   return {
     ...card,
     body: card.body ?? "",
     color: card.color ?? null,
     labels: Array.isArray(card.labels) ? card.labels : [],
+    kind: normalizeKind(card.kind),
+    sprintId: typeof card.sprintId === "string" && card.sprintId ? card.sprintId : null,
+    points,
   };
 }
 
 function normalizeIdeas(ideas: IdeasBoard | undefined): IdeasBoard {
   if (!ideas || !Array.isArray(ideas.columns) || !Array.isArray(ideas.cards)) return defaultIdeaBoard();
-  return { columns: ideas.columns, cards: ideas.cards.map(normalizeCard) };
+  return {
+    columns: ideas.columns,
+    cards: ideas.cards.map(normalizeCard),
+    sprints: Array.isArray(ideas.sprints) ? ideas.sprints.map(normalizeSprint) : [],
+  };
 }
 
 function normalizeProject(project: Project): Project {

@@ -97,17 +97,6 @@ select {
   position: relative;
 }
 
-.index-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 18px;
-  height: 18px;
-  background: linear-gradient(135deg, transparent 50%, #eadfc8 50%);
-  border-bottom-left-radius: 2px;
-}
-
 .chip {
   display: inline-flex;
   align-items: center;

@@ -468,6 +468,9 @@ export function ProjectWorkspace({
                 </button>
               ))}
               <div className="ml-auto flex gap-3">
+                <Link className="text-sm text-[var(--amber)]" href="/templates">
+                  My templates
+                </Link>
                 <button
                   className="text-sm text-[var(--amber)]"
                   type="button"
@@ -517,7 +520,10 @@ export function ProjectWorkspace({
               ))}
             </div>
             <p className="text-[var(--ink-soft)]">
-              {docName} is not in the project root yet. Create it from a template, or write it here.
+              {docName} is not in the project root yet. Create it from a template, or write it here.{" "}
+              <Link className="text-[var(--amber)]" href="/templates">
+                Edit my templates
+              </Link>
             </p>
             {onDisk ? (
               <>

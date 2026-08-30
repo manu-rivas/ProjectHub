@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { DOC_FILES, type DocFileName, type DocPreview } from "./types";
-import { renderTemplateFiles } from "./templates";
+import { renderAnyTemplate } from "./user-templates";
 import { isInside } from "./paths";
 
 export class DocError extends Error {
@@ -57,7 +57,7 @@ export function writeProjectDoc(projectPath: string, fileName: string, content: 
 }
 
 export function createDocsFromTemplate(projectPath: string, projectName: string, templateId: string, overwrite = false): string[] {
-  const files = renderTemplateFiles(templateId, projectName);
+  const files = renderAnyTemplate(templateId, projectName);
   const written: string[] = [];
   for (const [name, body] of Object.entries(files)) {
     const target = join(projectPath, name);

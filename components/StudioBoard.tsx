@@ -20,6 +20,7 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CreateProjectDialog } from "./CreateProjectDialog";
 import { ProjectQuickPane } from "./ProjectQuickPane";
@@ -101,6 +102,7 @@ function SortableCard({
   checked,
   selectMode,
   onOpen,
+  onOpenPage,
   onToggle,
 }: {
   project: Project;
@@ -108,6 +110,7 @@ function SortableCard({
   checked: boolean;
   selectMode: boolean;
   onOpen: (project: Project) => void;
+  onOpenPage: (project: Project) => void;
   onToggle: (project: Project) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -118,6 +121,7 @@ function SortableCard({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const clickTimer = useRef<number | null>(null);
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-start gap-1">
@@ -134,10 +138,24 @@ function SortableCard({
       ) : null}
       <div
         className="min-w-0 flex-1 touch-none"
+        title="Click for the quick pane. Double-click to open the project page."
         {...attributes}
         {...listeners}
         onClick={() => {
-          if (!isDragging) onOpen(project);
+          if (isDragging) return;
+          if (clickTimer.current) window.clearTimeout(clickTimer.current);
+          clickTimer.current = window.setTimeout(() => {
+            clickTimer.current = null;
+            onOpen(project);
+          }, 220);
+        }}
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          if (clickTimer.current) {
+            window.clearTimeout(clickTimer.current);
+            clickTimer.current = null;
+          }
+          onOpenPage(project);
         }}
       >
         <CardFace project={project} active={selected} checked={checked} dragging={isDragging} />
@@ -153,6 +171,7 @@ function ColumnLane({
   checkedIds,
   selectMode,
   onOpen,
+  onOpenPage,
   onToggle,
   onRename,
   onDelete,
@@ -163,6 +182,7 @@ function ColumnLane({
   checkedIds: Set<string>;
   selectMode: boolean;
   onOpen: (project: Project) => void;
+  onOpenPage: (project: Project) => void;
   onToggle: (project: Project) => void;
   onRename: (column: Column, title: string) => void;
   onDelete: (column: Column) => void;
@@ -177,11 +197,18 @@ function ColumnLane({
     <section className="paper-strip flex w-[19rem] shrink-0 flex-col rounded-lg p-3">
       <header className="column-tape mb-3 flex items-center gap-2 rounded px-3 py-2">
         <input
-          aria-label={`Column ${column.title}`}
-          className="w-full bg-transparent font-[family-name:var(--font-serif)] text-lg font-semibold outline-none"
+          aria-label={`Rename column ${column.title}`}
+          title="Rename column"
+          className="w-full rounded-sm border border-transparent bg-transparent px-1 font-[family-name:var(--font-serif)] text-lg font-semibold outline-none hover:border-[var(--rule)] focus:border-[var(--ink)]"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           onBlur={() => title.trim() && title !== column.title && onRename(column, title.trim())}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              (event.target as HTMLInputElement).blur();
+            }
+          }}
         />
         <span className="rounded-full bg-[var(--ink)] px-2 py-0.5 text-[11px] font-bold text-[var(--paper)]">
           {projects.length}
@@ -203,6 +230,7 @@ function ColumnLane({
               checked={checkedIds.has(project.id)}
               selectMode={selectMode}
               onOpen={onOpen}
+              onOpenPage={onOpenPage}
               onToggle={onToggle}
             />
           ))}
@@ -216,6 +244,7 @@ function ColumnLane({
 }
 
 export function StudioBoard() {
+  const router = useRouter();
   const [columns, setColumns] = useState<Column[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [query, setQuery] = useState("");
@@ -445,6 +474,11 @@ export function StudioBoard() {
     setSelected(project);
   }
 
+  function openProjectPage(project: Project) {
+    if (dragging.current) return;
+    router.push(`/projects/${encodeURIComponent(project.id)}`);
+  }
+
   function onDragStart(event: DragStartEvent) {
     dragging.current = true;
     setActiveId(String(event.active.id));
@@ -609,6 +643,9 @@ export function StudioBoard() {
               <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/catalog" onClick={() => setMenuOpen(false)}>
                 Catalog
               </Link>
+              <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/templates" onClick={() => setMenuOpen(false)}>
+                Doc templates
+              </Link>
               <Link role="menuitem" className="block rounded-md px-3 py-2 text-sm hover:bg-[var(--paper-deep)]" href="/settings" onClick={() => setMenuOpen(false)}>
                 Settings
               </Link>
@@ -695,6 +732,7 @@ export function StudioBoard() {
                     .filter((project) => project.columnId === column.id)
                     .sort((a, b) => a.order - b.order)}
                   onOpen={openProject}
+                  onOpenPage={openProjectPage}
                   onToggle={toggleCheck}
                   onRename={renameColumn}
                   onDelete={deleteColumn}

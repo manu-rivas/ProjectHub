@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { createDocsFromTemplate, DocError, listProjectDocs, previewDocs, writeProjectDoc } from "@/lib/docs";
 import { withProjectIcon } from "@/lib/icon";
-import { listTemplates } from "@/lib/templates";
+import { listAllTemplates } from "@/lib/user-templates";
 import { readStore, touchProject, writeStore } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json({ ok: true, templates: listTemplates() });
+  return NextResponse.json({ ok: true, templates: listAllTemplates() });
 }
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {

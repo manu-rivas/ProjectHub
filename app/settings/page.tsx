@@ -116,6 +116,10 @@ export default function SettingsPage() {
         Catalog
       </Link>
       {" · "}
+      <Link className="text-sm underline decoration-[var(--amber)] underline-offset-4" href="/templates">
+        Doc templates
+      </Link>
+      {" · "}
       <Link className="text-sm underline decoration-[var(--amber)] underline-offset-4" href="/setup">
         Setup
       </Link>

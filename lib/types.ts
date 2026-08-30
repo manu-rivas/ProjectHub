@@ -25,6 +25,24 @@ export type Column = {
   order: number;
 };
 
+export type IssueKind = "story" | "task" | "bug" | "spike";
+
+export const ISSUE_KINDS: { id: IssueKind; label: string; swatch: string }[] = [
+  { id: "story", label: "Story", swatch: "#3d6b4f" },
+  { id: "task", label: "Task", swatch: "#3d6a8a" },
+  { id: "bug", label: "Bug", swatch: "#9c4a3c" },
+  { id: "spike", label: "Spike", swatch: "#6b3d62" },
+];
+
+export type SprintState = "planned" | "active" | "done";
+
+export type Sprint = {
+  id: string;
+  name: string;
+  goal: string;
+  state: SprintState;
+};
+
 export type IdeaCard = {
   id: string;
   columnId: string;
@@ -33,11 +51,15 @@ export type IdeaCard = {
   body: string;
   color: CardColor | null;
   labels: string[];
+  kind: IssueKind;
+  sprintId: string | null;
+  points: number | null;
 };
 
 export type IdeasBoard = {
   columns: Column[];
   cards: IdeaCard[];
+  sprints: Sprint[];
 };
 
 export type ProjectAction = {

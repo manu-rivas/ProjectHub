@@ -7,7 +7,7 @@ export type ProjectTemplate = {
   files: Record<DocFileName, string>;
 };
 
-function fill(template: string, vars: { name: string }): string {
+export function fill(template: string, vars: { name: string }): string {
   return template.replaceAll("{{name}}", vars.name);
 }
 
