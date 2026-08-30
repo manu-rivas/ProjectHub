@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/lib/client";
+import { isHexColor } from "@/lib/color";
 import { isGitOnly } from "@/lib/project";
 import type { Column, DocPreview, Project, ProjectAction, PublishedState } from "@/lib/types";
 import { CARD_COLORS } from "@/lib/types";
@@ -10,6 +11,7 @@ import { CloneDialog } from "./CloneDialog";
 import { IdeaBoard } from "./IdeaBoard";
 import { LocalDeleteConfirm } from "./LocalDeleteConfirm";
 import { MarkdownView } from "./MarkdownView";
+import { ProjectMark } from "./ProjectMark";
 import { TrashConfirm } from "./TrashConfirm";
 
 type Props = {
@@ -23,7 +25,7 @@ type Props = {
   cloneRoot: string;
 };
 
-type Tab = "ideas" | "notes" | "docs" | "actions" | string;
+type Tab = "ideas" | "notes" | "docs" | "actions";
 
 type TemplateInfo = { id: string; name: string; description: string };
 
@@ -49,6 +51,8 @@ export function ProjectWorkspace({
   const [actions, setActions] = useState<ProjectAction[]>([]);
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [tab, setTab] = useState<Tab>("ideas");
+  const [docName, setDocName] = useState("README.md");
+  const [emojiDraft, setEmojiDraft] = useState(project.icon || "");
   const [saving, setSaving] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -86,7 +90,7 @@ export function ProjectWorkspace({
       .catch(() => undefined);
   }, []);
 
-  const activeDoc = useMemo(() => docs.find((doc) => doc.name === tab), [docs, tab]);
+  const activeDoc = useMemo(() => docs.find((doc) => doc.name === docName), [docs, docName]);
   const current = project;
 
   async function save(patch: Partial<Project>) {
@@ -168,9 +172,9 @@ export function ProjectWorkspace({
 
   async function saveDoc() {
     try {
-      await applyDocs({ name: tab, content: draft });
+      await applyDocs({ name: docName, content: draft });
       setEditing(false);
-      onToast(`Saved ${tab}`);
+      onToast(`Saved ${docName}`);
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Could not save the file");
     }
@@ -218,20 +222,59 @@ export function ProjectWorkspace({
     }
   }
 
+  async function saveEmoji() {
+    try {
+      const result = await api<{ project: Project }>(`/api/projects/${current.id}/icon`, {
+        method: "POST",
+        body: JSON.stringify({ emoji: emojiDraft }),
+      });
+      onChange(result.project);
+      onToast("Icon saved");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Could not save the icon");
+    }
+  }
+
+  async function uploadIcon(file: File) {
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const result = await api<{ project: Project }>(`/api/projects/${current.id}/icon`, {
+        method: "POST",
+        body,
+      });
+      onChange(result.project);
+      onToast("Picture saved");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Could not save the picture");
+    }
+  }
+
+  async function clearIcon() {
+    try {
+      const result = await api<{ project: Project }>(`/api/projects/${current.id}/icon`, { method: "DELETE" });
+      onChange(result.project);
+      setEmojiDraft("");
+      onToast("Icon removed");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Could not remove the icon");
+    }
+  }
+
   const onDisk = Boolean(project.path) && !project.missing && !project.trashed;
-  const docTabs = docs.length
-    ? docs.map((doc) => ({ id: doc.name, label: doc.name.replace(/\.md$/i, ""), badge: doc.exists }))
+  const docList = docs.length
+    ? docs
     : [
-        { id: "README.md", label: "README", badge: false },
-        { id: "PRODUCT.md", label: "PRODUCT", badge: false },
-        { id: "AGENTS.md", label: "AGENTS", badge: false },
+        { name: "README.md", exists: false, excerpt: "" },
+        { name: "PRODUCT.md", exists: false, excerpt: "" },
+        { name: "AGENTS.md", exists: false, excerpt: "" },
       ];
 
   const tabs: { id: Tab; label: string; badge?: boolean }[] = [
     { id: "ideas", label: "Board", badge: (project.ideas?.cards.length || 0) > 0 },
     { id: "notes", label: "Notes" },
     { id: "actions", label: "Actions", badge: actions.length > 0 },
-    ...docTabs,
+    { id: "docs", label: "Docs", badge: docs.some((doc) => doc.exists) },
   ];
 
   return (
@@ -240,15 +283,53 @@ export function ProjectWorkspace({
         <Link href="/" className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--amber)]">
           ← Studio wall
         </Link>
-        <input
-          className="mt-2 w-full bg-transparent font-[family-name:var(--font-serif)] text-4xl outline-none"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          onBlur={() => name.trim() && name !== project.name && save({ name: name.trim() })}
-        />
-        <p className="mt-1 break-all font-mono text-[12px] text-[var(--ink-soft)]">
-          {project.path || project.remoteUrl || "No local folder"}
-        </p>
+        <div className="mt-3 flex items-start gap-4">
+          <ProjectMark project={project} />
+          <div className="min-w-0 flex-1">
+            <input
+              className="w-full bg-transparent font-[family-name:var(--font-serif)] text-4xl outline-none"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onBlur={() => name.trim() && name !== project.name && save({ name: name.trim() })}
+            />
+            <p className="mt-1 break-all font-mono text-[12px] text-[var(--ink-soft)]">
+              {project.path || project.remoteUrl || "No local folder"}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+            Icon
+            <input
+              className="mt-1 block w-28 rounded-md border border-[var(--rule)] bg-[var(--card)] px-2 py-1 font-sans text-lg font-normal normal-case tracking-normal"
+              value={emojiDraft}
+              maxLength={8}
+              placeholder="🚀"
+              onChange={(event) => setEmojiDraft(event.target.value)}
+              onBlur={() => {
+                if (emojiDraft.trim() && emojiDraft !== project.icon) void saveEmoji();
+              }}
+            />
+          </label>
+          <label className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+            Picture
+            <input
+              className="mt-1 block text-xs font-normal normal-case tracking-normal"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadIcon(file);
+                event.target.value = "";
+              }}
+            />
+          </label>
+          {project.icon || project.iconExt ? (
+            <button className="text-sm text-[var(--clay)]" type="button" onClick={() => void clearIcon()}>
+              Remove icon
+            </button>
+          ) : null}
+        </div>
         <div className="mt-4 flex flex-wrap items-center gap-1.5" aria-label="Card color">
           <button
             type="button"
@@ -269,6 +350,18 @@ export function ProjectWorkspace({
               onClick={() => save({ color: item.id })}
             />
           ))}
+          <label className="ml-1 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+            Custom
+            <input
+              className={`h-7 w-10 cursor-pointer rounded border-2 bg-transparent p-0 ${
+                isHexColor(project.color) ? "border-[var(--ink)] ring-2 ring-[var(--amber)] ring-offset-1" : "border-[var(--rule)]"
+              }`}
+              type="color"
+              value={isHexColor(project.color) ? project.color : "#c4782a"}
+              aria-label="Custom color"
+              onChange={(event) => save({ color: event.target.value })}
+            />
+          </label>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <label className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">
@@ -320,8 +413,11 @@ export function ProjectWorkspace({
             onClick={() => {
               setTab(item.id);
               setEditing(false);
-              const doc = docs.find((entry) => entry.name === item.id);
-              setDraft(doc?.excerpt || "");
+              if (item.id === "docs") {
+                const preferred = docs.find((entry) => entry.name === docName) || docs.find((entry) => entry.exists) || docList[0];
+                setDocName(preferred.name);
+                setDraft(preferred.excerpt || "");
+              }
             }}
             type="button"
           >
@@ -396,24 +492,45 @@ export function ProjectWorkspace({
               </button>
             </form>
           </div>
-        ) : activeDoc?.exists ? (
+        ) : tab === "docs" && activeDoc?.exists ? (
           <div className="mx-auto max-w-3xl">
-            <div className="mb-3 flex justify-end gap-3">
-              <button
-                className="text-sm text-[var(--amber)]"
-                type="button"
-                onClick={() => {
-                  setDraft(activeDoc.excerpt || "");
-                  setEditing((currentEdit) => !currentEdit);
-                }}
-              >
-                {editing ? "Preview" : "Edit"}
-              </button>
-              {editing ? (
-                <button className="text-sm text-[var(--moss)]" type="button" onClick={() => void saveDoc()}>
-                  Save file
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {docList.map((doc) => (
+                <button
+                  key={doc.name}
+                  type="button"
+                  className={`rounded-full border px-3 py-1 text-sm ${
+                    docName === doc.name
+                      ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+                      : "border-[var(--rule)]"
+                  }`}
+                  onClick={() => {
+                    setDocName(doc.name);
+                    setEditing(false);
+                    setDraft(doc.excerpt || "");
+                  }}
+                >
+                  {doc.name.replace(/\.md$/i, "")}
+                  {doc.exists ? <span className="ml-1 text-[var(--moss)]">●</span> : null}
                 </button>
-              ) : null}
+              ))}
+              <div className="ml-auto flex gap-3">
+                <button
+                  className="text-sm text-[var(--amber)]"
+                  type="button"
+                  onClick={() => {
+                    setDraft(activeDoc.excerpt || "");
+                    setEditing((currentEdit) => !currentEdit);
+                  }}
+                >
+                  {editing ? "Preview" : "Edit"}
+                </button>
+                {editing ? (
+                  <button className="text-sm text-[var(--moss)]" type="button" onClick={() => void saveDoc()}>
+                    Save file
+                  </button>
+                ) : null}
+              </div>
             </div>
             {editing ? (
               <textarea
@@ -425,10 +542,29 @@ export function ProjectWorkspace({
               <MarkdownView markdown={activeDoc.excerpt || ""} projectId={project.id} />
             )}
           </div>
-        ) : (
+        ) : tab === "docs" ? (
           <div className="mx-auto max-w-3xl space-y-3 text-sm">
+            <div className="mb-1 flex flex-wrap gap-2">
+              {docList.map((doc) => (
+                <button
+                  key={doc.name}
+                  type="button"
+                  className={`rounded-full border px-3 py-1 text-sm ${
+                    docName === doc.name
+                      ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+                      : "border-[var(--rule)]"
+                  }`}
+                  onClick={() => {
+                    setDocName(doc.name);
+                    setDraft(doc.excerpt || "");
+                  }}
+                >
+                  {doc.name.replace(/\.md$/i, "")}
+                </button>
+              ))}
+            </div>
             <p className="text-[var(--ink-soft)]">
-              {tab} is not in the project root yet. Create it from a template, or write it here.
+              {docName} is not in the project root yet. Create it from a template, or write it here.
             </p>
             {onDisk ? (
               <>
@@ -461,14 +597,14 @@ export function ProjectWorkspace({
                   disabled={!draft.trim()}
                   onClick={() => void saveDoc()}
                 >
-                  Create {tab}
+                  Create {docName}
                 </button>
               </>
             ) : (
               <p className="text-[var(--ink-soft)]">Clone with GitHub CLI or create a local folder first.</p>
             )}
           </div>
-        )}
+        ) : null}
       </div>
 
       <footer className="grid grid-cols-3 gap-2 border-t border-[var(--rule)] bg-[var(--paper-deep)] px-6 py-3 sm:grid-cols-6">

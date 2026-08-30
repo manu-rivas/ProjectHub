@@ -64,7 +64,7 @@ Existing boards keep working. Initializing SQLite copies the current store; it d
 
 ## Project page
 
-Click a card on the studio wall to open `/projects/[id]`. That page is the project home: its idea board, notes, README / PRODUCT / AGENTS, and start/open actions. The wall stays a kanban of projects.
+Click a card on the studio wall to open `/projects/[id]`. That page is the project home: its idea board, notes, a **Docs** tab for README / PRODUCT / AGENTS, and start/open actions. Give the card a preset or custom color and an emoji or picture icon. The wall stays a kanban of projects.
 
 Each project also has its own Trello-style idea board (Backlog / Doing / Done by default). Add columns, drag cards, set color and labels. This is separate from the studio wall.
 

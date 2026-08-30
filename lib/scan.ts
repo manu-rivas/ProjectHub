@@ -135,6 +135,8 @@ export function scanIntoStore(store: Store): { added: number; updated: number; m
       hidden: false,
       tags: [],
       color: null,
+      icon: null,
+      iconExt: null,
       missing: false,
       order: Date.now(),
       updatedAt: now,

@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { CreateProjectError, createLocalProject } from "@/lib/create-project";
 import { projectIdFromPath } from "@/lib/id";
 import { ensureColumn, defaultIdeaBoard, readStore, touchProject, writeStore } from "@/lib/store";
+import { normalizeColor } from "@/lib/color";
+import { normalizeIcon } from "@/lib/icon";
 import type { Project } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -62,6 +64,8 @@ export async function POST(request: Request) {
     hidden: false,
     tags: [],
     color: null,
+    icon: null,
+    iconExt: null,
     missing: false,
     order: Date.now(),
     updatedAt: now,
@@ -100,6 +104,7 @@ export async function PATCH(request: Request) {
     "order",
     "ideas",
     "color",
+    "icon",
     "actions",
     "templateId",
   ];
@@ -109,6 +114,8 @@ export async function PATCH(request: Request) {
       Object.assign(patch, { [key]: body[key] });
     }
   }
+  if ("color" in patch) patch.color = normalizeColor(patch.color);
+  if ("icon" in patch) patch.icon = patch.icon === null ? null : normalizeIcon(patch.icon);
   if (patch.columnId) patch.columnId = ensureColumn(store, patch.columnId);
   store.projects[index] = touchProject(store.projects[index], patch);
   writeStore(store);

@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { normalizeColor } from "./color";
+import { normalizeIcon } from "./icon";
 import { newId, projectIdFromRemote } from "./id";
 import { remoteKey } from "./git";
 import { supabaseConfigured } from "./secrets";
@@ -74,7 +76,9 @@ function normalizeProject(project: Project): Project {
     ...project,
     trashed: Boolean(project.trashed),
     trashedAt: project.trashedAt ?? null,
-    color: project.color ?? null,
+    color: normalizeColor(project.color),
+    icon: normalizeIcon(project.icon),
+    iconExt: typeof project.iconExt === "string" && project.iconExt ? project.iconExt : null,
     actions: Array.isArray(project.actions) ? project.actions : [],
     templateId: project.templateId ?? null,
     ideas: normalizeIdeas(project.ideas),

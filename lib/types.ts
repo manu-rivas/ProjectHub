@@ -55,7 +55,9 @@ export type Project = {
   notes: string;
   hidden: boolean;
   tags: string[];
-  color: CardColor | null;
+  color: string | null;
+  icon: string | null;
+  iconExt: string | null;
   missing: boolean;
   order: number;
   updatedAt: string;

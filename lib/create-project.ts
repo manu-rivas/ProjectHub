@@ -75,6 +75,8 @@ export function createLocalProject(input: {
     hidden: false,
     tags: [],
     color: null,
+    icon: null,
+    iconExt: null,
     missing: false,
     order: Date.now(),
     updatedAt: now,

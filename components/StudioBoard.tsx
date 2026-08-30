@@ -25,7 +25,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CreateProjectDialog } from "./CreateProjectDialog";
 import { SetupWizard } from "./SetupWizard";
 import { TrashConfirm } from "./TrashConfirm";
+import { cardTintClass, cardTintStyle } from "@/lib/color";
 import { hasLocalCopy, isGitOnly } from "@/lib/project";
+import { ProjectMark } from "./ProjectMark";
 
 type BoardResponse = {
   columns: Column[];
@@ -59,13 +61,16 @@ function CardFace({
   dragging?: boolean;
 }) {
   const gitOnly = isGitOnly(project);
-  const tint = project.color ? `index-card-tint-${project.color}` : "";
+  const tint = cardTintClass(project.color);
   return (
     <article
       className={`index-card cursor-grab rounded-md p-3 active:cursor-grabbing ${tint} ${gitOnly ? "index-card-gitonly" : ""} ${active ? "index-card-active" : ""} ${checked ? "index-card-checked" : ""} ${dragging ? "opacity-40" : ""}`}
-      aria-disabled={gitOnly || undefined}
+      style={cardTintStyle(project.color)}
     >
-      <h3 className="pr-4 font-[family-name:var(--font-serif)] text-lg leading-tight">{project.name}</h3>
+      <div className="flex items-start gap-2">
+        <ProjectMark project={project} size="sm" />
+        <h3 className="min-w-0 flex-1 font-[family-name:var(--font-serif)] text-lg leading-tight">{project.name}</h3>
+      </div>
       <p className="mt-1 truncate font-mono text-[11px] text-[var(--ink-soft)]">
         {gitOnly ? project.remoteUrl || "Git only" : project.path || project.remoteUrl || "No local folder"}
       </p>

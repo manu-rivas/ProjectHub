@@ -96,6 +96,8 @@ function mergeProjects(local: Project[], incoming: Project[]): Project[] {
       ideas: remote.ideas?.cards ? remote.ideas : current?.ideas || defaultIdeaBoard(),
       notes: remote.notes || current?.notes || "",
       color: remote.color || current?.color || null,
+      icon: remote.icon || current?.icon || null,
+      iconExt: remote.iconExt || current?.iconExt || null,
       actions: remote.actions?.length ? remote.actions : current?.actions || [],
       templateId: remote.templateId || current?.templateId || null,
     };
