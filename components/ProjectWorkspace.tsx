@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CloneDialog } from "./CloneDialog";
 import { IdeaBoard } from "./IdeaBoard";
 import { LocalDeleteConfirm } from "./LocalDeleteConfirm";
+import { IconPicker } from "./IconPicker";
 import { MarkdownView } from "./MarkdownView";
 import { ProjectMark } from "./ProjectMark";
 import { TrashConfirm } from "./TrashConfirm";
@@ -52,7 +53,6 @@ export function ProjectWorkspace({
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [tab, setTab] = useState<Tab>("ideas");
   const [docName, setDocName] = useState("README.md");
-  const [emojiDraft, setEmojiDraft] = useState(project.icon || "");
   const [hexDraft, setHexDraft] = useState(isHexColor(project.color) ? toHex6(project.color) : "");
   const [saving, setSaving] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
@@ -223,47 +223,6 @@ export function ProjectWorkspace({
     }
   }
 
-  async function saveEmoji() {
-    try {
-      const result = await api<{ project: Project }>(`/api/projects/${current.id}/icon`, {
-        method: "POST",
-        body: JSON.stringify({ emoji: emojiDraft }),
-      });
-      onChange(result.project);
-      setEmojiDraft(result.project.icon || "");
-      onToast("Icon saved");
-    } catch (error) {
-      onToast(error instanceof Error ? error.message : "Could not save the icon");
-    }
-  }
-
-  async function uploadIcon(file: File) {
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      const result = await api<{ project: Project }>(`/api/projects/${current.id}/icon`, {
-        method: "POST",
-        body,
-      });
-      onChange(result.project);
-      setEmojiDraft("");
-      onToast("Picture saved");
-    } catch (error) {
-      onToast(error instanceof Error ? error.message : "Could not save the picture");
-    }
-  }
-
-  async function clearIcon() {
-    try {
-      const result = await api<{ project: Project }>(`/api/projects/${current.id}/icon`, { method: "DELETE" });
-      onChange(result.project);
-      setEmojiDraft("");
-      onToast("Icon removed");
-    } catch (error) {
-      onToast(error instanceof Error ? error.message : "Could not remove the icon");
-    }
-  }
-
   const onDisk = Boolean(project.path) && !project.missing && !project.trashed;
   const docList = docs.length
     ? docs
@@ -288,19 +247,7 @@ export function ProjectWorkspace({
         </Link>
         <p className="mt-1 text-xs text-[var(--ink-soft)]">Full project page</p>
         <div className="mt-3 flex items-start gap-4">
-          <label className="cursor-pointer" title="Add a picture">
-            <ProjectMark project={project} />
-            <input
-              className="sr-only"
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void uploadIcon(file);
-                event.target.value = "";
-              }}
-            />
-          </label>
+          <ProjectMark project={project} />
           <div className="min-w-0 flex-1">
             <input
               className="w-full bg-transparent font-[family-name:var(--font-serif)] text-4xl outline-none"
@@ -313,26 +260,8 @@ export function ProjectWorkspace({
             </p>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <label className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)]">
-            Icon
-            <input
-              className="mt-1 block w-28 rounded-md border border-[var(--rule)] bg-[var(--card)] px-2 py-1 font-sans text-lg font-normal normal-case tracking-normal"
-              value={emojiDraft}
-              maxLength={8}
-              placeholder="🚀"
-              onChange={(event) => setEmojiDraft(event.target.value)}
-              onBlur={() => {
-                if (emojiDraft.trim() && emojiDraft !== project.icon) void saveEmoji();
-              }}
-            />
-          </label>
-          <p className="pb-1 text-xs text-[var(--ink-soft)]">or click the mark to upload a picture</p>
-          {project.icon || project.iconExt ? (
-            <button className="text-sm text-[var(--clay)]" type="button" onClick={() => void clearIcon()}>
-              Remove icon
-            </button>
-          ) : null}
+        <div className="mt-4">
+          <IconPicker project={project} onChange={onChange} onToast={onToast} />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-1.5" aria-label="Card color">
           <button

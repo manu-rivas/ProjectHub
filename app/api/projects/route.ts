@@ -5,7 +5,7 @@ import { CreateProjectError, createLocalProject } from "@/lib/create-project";
 import { projectIdFromPath } from "@/lib/id";
 import { ensureColumn, defaultIdeaBoard, readStore, touchProject, writeStore } from "@/lib/store";
 import { normalizeColor } from "@/lib/color";
-import { normalizeIcon } from "@/lib/icon";
+import { normalizeIcon, removeIconFiles, withProjectIcon } from "@/lib/icon";
 import type { Project } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
   };
   store.projects.push(project);
   writeStore(store);
-  return NextResponse.json({ ok: true, project });
+  return NextResponse.json({ ok: true, project: withProjectIcon(project) });
 }
 
 export async function PATCH(request: Request) {
@@ -115,9 +115,15 @@ export async function PATCH(request: Request) {
     }
   }
   if ("color" in patch) patch.color = normalizeColor(patch.color);
-  if ("icon" in patch) patch.icon = patch.icon === null ? null : normalizeIcon(patch.icon);
+  if ("icon" in patch) {
+    patch.icon = patch.icon === null ? null : normalizeIcon(patch.icon);
+    if (patch.icon) {
+      removeIconFiles(body.id);
+      patch.iconExt = null;
+    }
+  }
   if (patch.columnId) patch.columnId = ensureColumn(store, patch.columnId);
   store.projects[index] = touchProject(store.projects[index], patch);
   writeStore(store);
-  return NextResponse.json({ ok: true, project: store.projects[index] });
+  return NextResponse.json({ ok: true, project: withProjectIcon(store.projects[index]) });
 }

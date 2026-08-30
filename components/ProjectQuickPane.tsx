@@ -8,6 +8,7 @@ import { CARD_COLORS } from "@/lib/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CloneDialog } from "./CloneDialog";
+import { IconPicker } from "./IconPicker";
 import { ProjectMark } from "./ProjectMark";
 
 export function ProjectQuickPane({
@@ -153,6 +154,9 @@ function QuickPaneBody({
         >
           Open project page
         </Link>
+        <div className="mt-4">
+          <IconPicker project={project} onChange={onChange} onToast={onToast} />
+        </div>
         <div className="mt-4 flex flex-wrap items-center gap-1.5" aria-label="Card color">
           <button
             type="button"

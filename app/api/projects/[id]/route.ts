@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { previewDocs } from "@/lib/docs";
 import { detectedActions, mergeActions } from "@/lib/actions";
+import { withProjectIcon } from "@/lib/icon";
 import { readStore } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -14,5 +15,5 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   const docs = previewDocs(project.path);
   const actions = mergeActions(project.actions, detectedActions(project.path));
-  return NextResponse.json({ ok: true, project, docs, actions });
+  return NextResponse.json({ ok: true, project: withProjectIcon(project), docs, actions });
 }

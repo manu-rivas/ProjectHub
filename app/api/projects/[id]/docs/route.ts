@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createDocsFromTemplate, DocError, listProjectDocs, previewDocs, writeProjectDoc } from "@/lib/docs";
+import { withProjectIcon } from "@/lib/icon";
 import { listTemplates } from "@/lib/templates";
 import { readStore, touchProject, writeStore } from "@/lib/store";
 
@@ -42,7 +43,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({
       ok: true,
       written,
-      project: store.projects[index],
+      project: withProjectIcon(store.projects[index]),
       docs: previewDocs(store.projects[index].path),
     });
   } catch (error) {

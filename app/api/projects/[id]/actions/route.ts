@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ActionError, detectedActions, mergeActions, normalizeCustomAction, runProjectAction } from "@/lib/actions";
+import { withProjectIcon } from "@/lib/icon";
 import { readStore, touchProject, writeStore } from "@/lib/store";
 import type { ProjectAction } from "@/lib/types";
 
@@ -38,14 +39,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const actions = [...(project.actions || []).filter((item) => item.id !== next.id), next];
       store.projects[index] = touchProject(project, { actions });
       writeStore(store);
-      return NextResponse.json({ ok: true, project: store.projects[index], action: next });
+      return NextResponse.json({ ok: true, project: withProjectIcon(store.projects[index]), action: next });
     }
 
     if (body.action === "remove") {
       const actions = (project.actions || []).filter((item) => item.id !== body.actionId);
       store.projects[index] = touchProject(project, { actions });
       writeStore(store);
-      return NextResponse.json({ ok: true, project: store.projects[index] });
+      return NextResponse.json({ ok: true, project: withProjectIcon(store.projects[index]) });
     }
 
     const available = mergeActions(project.actions, detectedActions(project.path));

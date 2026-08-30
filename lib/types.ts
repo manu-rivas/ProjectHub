@@ -58,6 +58,7 @@ export type Project = {
   color: string | null;
   icon: string | null;
   iconExt: string | null;
+  iconDataUrl?: string | null;
   missing: boolean;
   order: number;
   updatedAt: string;

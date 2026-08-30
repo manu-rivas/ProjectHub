@@ -36,6 +36,26 @@ body {
   height: 100%;
 }
 
+.project-mark-emoji {
+  font-family: var(--font-emoji), "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji",
+    "Twemoji Mozilla", sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 body {
   color: var(--ink);
   background-color: #c9b496;

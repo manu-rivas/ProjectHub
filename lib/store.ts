@@ -79,6 +79,7 @@ function normalizeProject(project: Project): Project {
     color: normalizeColor(project.color),
     icon: normalizeIcon(project.icon),
     iconExt: typeof project.iconExt === "string" && project.iconExt ? project.iconExt : null,
+    iconDataUrl: undefined,
     actions: Array.isArray(project.actions) ? project.actions : [],
     templateId: project.templateId ?? null,
     ideas: normalizeIdeas(project.ideas),

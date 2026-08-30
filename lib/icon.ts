@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { Project } from "./types";
 
 export const ICON_DIR = join(homedir(), ".projecthub", "icons");
 
@@ -81,4 +82,23 @@ export function writeIconFile(projectId: string, bytes: Buffer, contentType: str
   const target = iconPath(projectId, ext);
   writeFileSync(target, bytes);
   return ext.slice(1);
+}
+
+export function projectIconDataUrl(projectId: string): string | null {
+  const file = findIconFile(projectId);
+  if (!file || !existsSync(file)) return null;
+  const dot = file.lastIndexOf(".");
+  const ext = dot >= 0 ? file.slice(dot).toLowerCase() : "";
+  const type = ICON_TYPES[ext];
+  if (!type) return null;
+  const bytes = readFileSync(file);
+  if (bytes.length > 250_000) return null;
+  return `data:${type};base64,${bytes.toString("base64")}`;
+}
+
+export function withProjectIcon(project: Project): Project {
+  return {
+    ...project,
+    iconDataUrl: project.iconExt ? projectIconDataUrl(project.id) : null,
+  };
 }

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { extname } from "node:path";
 import { NextResponse } from "next/server";
-import { findIconFile, ICON_TYPES, normalizeIcon, removeIconFiles, writeIconFile } from "@/lib/icon";
+import { findIconFile, ICON_TYPES, normalizeIcon, removeIconFiles, withProjectIcon, writeIconFile } from "@/lib/icon";
 import { readStore, touchProject, writeStore } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -46,7 +46,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       removeIconFiles(id);
       store.projects[index] = touchProject(store.projects[index], { icon: emoji, iconExt: null });
       writeStore(store);
-      return NextResponse.json({ ok: true, project: store.projects[index] });
+      return NextResponse.json({ ok: true, project: withProjectIcon(store.projects[index]) });
     }
 
     const form = await request.formData();
@@ -61,7 +61,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const ext = writeIconFile(id, bytes, file.type);
     store.projects[index] = touchProject(store.projects[index], { icon: null, iconExt: ext });
     writeStore(store);
-    return NextResponse.json({ ok: true, project: store.projects[index] });
+    return NextResponse.json({ ok: true, project: withProjectIcon(store.projects[index]) });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Could not save the icon" },
@@ -78,5 +78,5 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   removeIconFiles(id);
   store.projects[index] = touchProject(store.projects[index], { icon: null, iconExt: null });
   writeStore(store);
-  return NextResponse.json({ ok: true, project: store.projects[index] });
+  return NextResponse.json({ ok: true, project: withProjectIcon(store.projects[index]) });
 }
